@@ -653,9 +653,10 @@ const unsigned char* get_battery_symbol(float v_bat, bool charging, uint8_t *red
 		*percent_out = percent;
 	}
 
-	if(percent > 75) return battery_100;
-	if(percent > 50) return battery_50;
-	if(percent > 25) return battery_25;
+	if(percent >= 90) return battery_100;
+	if(percent >= 75) return battery_75;
+	if(percent >= 50) return battery_50;
+	if(percent >= 25) return battery_25;
 	return battery_0;
 }
 
