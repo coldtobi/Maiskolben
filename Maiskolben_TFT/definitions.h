@@ -73,7 +73,7 @@
 #define kd          0.0
 
 #define TIME_COMPUTE_IN_MS          10
-#define TIME_MEASURE_VOLTAGE_IN_MS 200
+#define TIME_MEASURE_VOLTAGE_IN_MS 50
 #define TIME_SW_POLL_IN_MS          10
 #define DELAY_BEFORE_MEASURE        10
 #define DELAY_MAIN_LOOP             10
