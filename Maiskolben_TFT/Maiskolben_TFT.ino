@@ -12,6 +12,9 @@
  */
 //#define USE_TFT_RESET
 
+/* show splash screen only a short time; to enter options, press power button when turning the maiskolben on. */
+#define FAST_BOOT
+
 /*
  * If red is blue and blue is red change this
  * If not sure, leave commented, you will be shown a setup screen
@@ -222,6 +225,9 @@ void setup(void) {
 	if (force_menu) optionMenu();
 	else {
 		updateRevision();
+#ifdef FAST_BOOT
+		attachInterrupt(digitalPinToInterrupt(SW_STBY), optionMenu, LOW);
+#endif
 		tft.drawBitmap(0, 20, maiskolben, 160, 64, YELLOW);
 		tft.setCursor(20,86);
 		tft.setTextColor(YELLOW);
@@ -235,13 +241,17 @@ void setup(void) {
 		tft.print("HW Revision ");
 		tft.print(revision);
 
+#ifdef FAST_BOOT
 		//Allow Options to be set at startup
+		delay(200);
+#else
 		delay(100);
 		attachInterrupt(digitalPinToInterrupt(SW_STBY), optionMenu, LOW);
 		for (int i = 0; i < 10 && !menu_dismissed; i++) {
 			digitalWrite(HEAT_LED, i % 2);
 			delay(250);
 		}
+#endif
 		detachInterrupt(digitalPinToInterrupt(SW_STBY));
 	}
 	/*
