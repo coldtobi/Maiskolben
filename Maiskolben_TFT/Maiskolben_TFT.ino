@@ -684,17 +684,17 @@ void display(void) {
 			if (stby || stby_layoff) {
 				old_stby = true;
 				tft.setTextColor(YELLOW, BLACK);
-				tft.print(F("STBY  "));
+				tft.print(F("STBY "));
 			} else {
 				old_stby = false;
 				set_t_old = set_t;
 				tft.setTextColor(WHITE, BLACK);
-				tft.write(' ');
+				//tft.write(' ');
 				printTemp(set_t);
 				tft.write(247);
 				tft.write(fahrenheit?'F':'C');
-				tft.fillTriangle(149, 50, 159, 50, 154, 38, (set_t < TEMP_MAX) ? WHITE : GRAY);
-				tft.fillTriangle(149, 77, 159, 77, 154, 90, (set_t > TEMP_MIN) ? WHITE : GRAY);
+				tft.fillTriangle(140, 50, 150, 50, 145, 38, (set_t < TEMP_MAX) ? WHITE : GRAY);
+				tft.fillTriangle(140, 77, 150, 77, 145, 90, (set_t > TEMP_MIN) ? WHITE : GRAY);
 			}
 		}
 		if (!off) {
@@ -737,7 +737,7 @@ void display(void) {
 			if (temperature < TEMP_COLD) {
 				tft.print(F("COLD  "));
 			} else {
-				tft.write(' ');
+				//tft.write(' ');
 				printTemp(temperature);
 				tft.write(247);
 				tft.write(fahrenheit?'F':'C');
