@@ -514,6 +514,10 @@ void timer_sw_poll(void) {
 	} else {
 		if (cnt_off_press > 0 && cnt_off_press <= 100) {
 			if (!off) setStandby(!stby);
+			if (off) {
+				setStandby(false);
+				setOff(false);
+			}
 		}
 		cnt_off_press = 0;
 	}
