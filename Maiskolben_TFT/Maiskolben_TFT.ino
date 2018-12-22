@@ -15,6 +15,9 @@
 /* show splash screen only a short time; to enter options, press power button when turning the maiskolben on. */
 #define FAST_BOOT
 
+/* display the input voltage (define to true to show, to false to hide */
+#define SHOW_INPUT_VOLTS true
+
 /*
  * If red is blue and blue is red change this
  * If not sure, leave commented, you will be shown a setup screen
@@ -798,15 +801,21 @@ void display(void) {
 			power_source_old = power_source;
 		}
 		if (power_source == POWER_CORD) {
-			/*if (v > v_c3) {
-				tft.setTextSize(2);
-				tft.setTextColor(GREEN, BLACK);
-				tft.setCursor(0,5);
-				tft.print(v);
+			if (SHOW_INPUT_VOLTS) {
+				tft.drawBitmap(0, 5, power_cord, 24, 9, tft.Color565(max(0, min(255, ((NUM_CELLS*MAX_VOLTS_PER_CELL)-v)*112)), max(0, min(255, (v-NUM_CELLS*MIN_VOLTS_PER_CELL)*112)), 0));
+				tft.setTextSize(1);
+				tft.setTextColor(tft.Color565(max(0, min(255, ((NUM_CELLS*MAX_VOLTS_PER_CELL)-v)*112)), max(0, min(255, (v-(NUM_CELLS*MIN_VOLTS_PER_CELL))*112)), 0), BLACK);
+				tft.setCursor(25,5);
+				tft.print(v,1);
 				tft.print("V ");
-			} else {*/
-				tft.drawBitmap(0, 5, power_cord, 24, 9, tft.Color565(max(0, min(255, (14.5-v)*112)), max(0, min(255, (v-11)*112)), 0));
-			//}
+				if ( v > NUM_CELLS*MAX_CHARGE_PER_CELL) {
+				  tft.setTextColor(WHITE,BLACK);
+				  tft.print(v_c3 + 0.3 ); // 0,3 for the shottky diode
+				  tft.print("Vbat");
+				}
+			} else {
+				tft.drawBitmap(0, 5, power_cord, 24, 9, tft.Color565(max(0, min(255, ((NUM_CELLS*MAX_VOLTS_PER_CELL)-v)*112)), max(0, min(255, (v-NUM_CELLS*MIN_VOLTS_PER_CELL)*112)), 0));
+			}
 		} else if (power_source == POWER_LIPO || power_source == POWER_CHARGING) {
 			float volt[] = {v_c1, v_c2-v_c1, v_c3-v_c2};
 			uint8_t volt_disp[] = {max(1,min(16,(volt[0]-3.0)*14.2)), max(1,min(16,(volt[1]-3.0)*14.2)), max(1,min(16,(volt[2]-3.0)*14.2))};
@@ -817,11 +826,11 @@ void display(void) {
 				}
 			}
 			for (uint8_t i = 0; i < 3; i++) {
-				if (volt[i] < 3.20) {
+				if (volt[i] < MIN_VOLTS_PER_CELL) {
 					setError(BATTERY_LOW);
 					tft.fillRect(13, 7+14*i, volt_disp[i], 8, blink?RED:BLACK);
 				} else {
-					tft.fillRect(13, 7+14*i, volt_disp[i], 8, tft.Color565(250-min(250, max(0, (volt[i]-3.4)*1000.0)), max(0,min(250, (volt[i]-3.15)*1000.0)), 0));
+					tft.fillRect(13, 7+14*i, volt_disp[i], 8, tft.Color565(250-min(250, max(0, (volt[i]-MIN_VOLTS_PER_CELL)*1000.0)), max(0,min(250, (volt[i]-MIN_VOLTS_PER_CELL)*1000.0)), 0));
 				}
 				tft.fillRect(13+volt_disp[i], 7+14*i, 17-volt_disp[i], 8, BLACK);
 			}
