@@ -31,15 +31,15 @@
 
 // voltage ranges for the voltage display.
 #define NUM_CELLS (4)
-#if (true) // For LiFePO4, set to false. Be sure to read not below
+#if (false) // For LiFePO4, set to false. Be sure to read not below
 #define MIN_VOLTS_PER_CELL  (3.0)   // LiIon: Usually discharged until 3.0 V/cell
 #define MAX_VOLTS_PER_CELL (3.6)  // LiIon: Nominal at 3.6V
 #define MAX_CHARGE_PER_CELL (4.2) // When charged, full at 4.2
 #else
 // NOTE: LiFePO4 needs an own BMS! Do not use the LiIon charging circuitry that might be on your Maiskolben! Ignoring this warning can cause your cell to explode and may cause fires!
-#define MIN_VOLTS_PER_CELL  (2.5)   // LiFePo in my case, they can go down to 2.0V, my BMS will lockout at 2.1. The 2.5 are margin.
+#define MIN_VOLTS_PER_CELL  (2.5)   // LiFePo in my case, they can go down to 2.0V, my BMS wi4,2ll lockout at 2.1. The 2.75 are margin.
 #define MAX_VOLTS_PER_CELL  (3.2)  // LiFePo: nominal voltage is 3.2V
-#define MAX_CHARGE_PER_CELL (4.2) // When charged, full at 3.6V
+#define MAX_CHARGE_PER_CELL (3.6) // When charged, full at 3.6V
 #endif
 //#define OLD_PWM
 
@@ -124,6 +124,83 @@ const unsigned char power_cord [] PROGMEM =  {
 	0x00, 0xFF, 0xC0,
 	0x00, 0x00, 0xC0
 };
+
+const unsigned char battery_0 [] PROGMEM =  {
+	0b11111111, 0b11111111, 0b11111100,
+	0b10000000, 0b00000000, 0b00000111,
+	0b10000000, 0b00000000, 0b00000101,
+	0b10000000, 0b00000000, 0b00000101,
+	0b10000000, 0b00000000, 0b00000101,
+	0b10000000, 0b00000000, 0b00000111,
+	0b11111111, 0b11111111, 0b11111100,
+	0,0,0,	0,0,0,
+};
+
+
+const unsigned char battery_25 [] PROGMEM =  {
+	0b11111111, 0b11111111, 0b11111100,
+	0b11111100, 0b00000000, 0b00000111,
+	0b11111100, 0b00000000, 0b00000101,
+	0b11111100, 0b00000000, 0b00000101,
+	0b11111100, 0b00000000, 0b00000101,
+	0b11111100, 0b00000000, 0b00000111,
+	0b11111111, 0b11111111, 0b11111100,
+	0,0,0,	0,0,0,
+};
+
+const unsigned char battery_50 [] PROGMEM =  {
+	0b11111111, 0b11111111, 0b11111100,
+	0b11111111, 0b11100000, 0b00000111,
+	0b11111111, 0b11100000, 0b00000101,
+	0b11111111, 0b11100000, 0b00000101,
+	0b11111111, 0b11100000, 0b00000101,
+	0b11111111, 0b11100000, 0b00000111,
+	0b11111111, 0b11111111, 0b11111100,
+	0,0,0,	0,0,0,
+};
+
+const unsigned char battery_75 [] PROGMEM = {
+	0b11111111, 0b11111111, 0b11111100,
+	0b11111111, 0b11111111, 0b00000111,
+	0b11111111, 0b11111111, 0b00000101,
+	0b11111111, 0b11111111, 0b00000101,
+	0b11111111, 0b11111111, 0b00000101,
+	0b11111111, 0b11111111, 0b00000111,
+	0b11111111, 0b11111111, 0b11111100,
+	0,0,0,	0,0,0,
+};
+
+const unsigned char battery_100 [] PROGMEM =  {
+	0b11111111, 0b11111111, 0b11111100,
+	0b11111111, 0b11111111, 0b11111111,
+	0b11111111, 0b11111111, 0b11111101,
+	0b11111111, 0b11111111, 0b11111101,
+	0b11111111, 0b11111111, 0b11111101,
+	0b11111111, 0b11111111, 0b11111111,
+	0b11111111, 0b11111111, 0b11111100,
+	0,0,0,	0,0,0,
+};
+
+
+// 0b00000000, 0b00000000, 0b11000000
+// 0b00000000, 0b11111111, 0b11000000
+// 0b00000001, 0b11111111, 0b11011111
+// 0b00000011, 0b11111111, 0b11011111
+// 0b11111011, 0b11111111, 0b11000000
+// 0b00000011, 0b11111111, 0b11011111
+// 0b00000001, 0b11111111, 0b11011111
+// 0b00000000, 0b11111111, 0b11000000
+// 0b00000000, 0b00000000, 0b11000000
+
+// 0123456701234567 01234567
+// **************
+// *            ***
+// *            * *
+// *            ***
+// **************
+
+
+
 
 const unsigned char maiskolben [] PROGMEM =  {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 

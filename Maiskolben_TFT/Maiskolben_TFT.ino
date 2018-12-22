@@ -629,6 +629,36 @@ void printTemp(float t) {
 	tft.print((int)t);
 }
 
+
+const unsigned char* get_battery_symbol(float v_bat, bool charging, uint8_t *red, uint8_t *green, uint8_t *percent_out ) {
+	uint8_t percent;
+	if (charging) {
+		float D_MAX = NUM_CELLS * (MAX_CHARGE_PER_CELL - MIN_VOLTS_PER_CELL);
+		float delta_v = (v_bat) - (NUM_CELLS * MIN_VOLTS_PER_CELL);
+		// Ladezustand
+		percent = min(100,max(0,(delta_v / D_MAX ) * 100.0));
+	} else {
+		float D_MAX = NUM_CELLS * (MAX_VOLTS_PER_CELL - MIN_VOLTS_PER_CELL);
+		float delta_v = (v_bat) - (NUM_CELLS * MIN_VOLTS_PER_CELL);
+		// Ladezustand
+		percent = min(100,max(0,(delta_v / D_MAX ) * 100.0));
+	}
+
+	if (red && green) {
+		*green = ((float) percent) * 2.55;
+		*red = 255-*green;
+	}
+
+	if (percent_out) {
+		*percent_out = percent;
+	}
+
+	if(percent > 75) return battery_100;
+	if(percent > 50) return battery_50;
+	if(percent > 25) return battery_25;
+	return battery_0;
+}
+
 void display(void) {
 	if (force_redraw) tft.fillScreen(BLACK);
 	int16_t temperature = cur_t; //buffer volatile value
@@ -801,20 +831,41 @@ void display(void) {
 			power_source_old = power_source;
 		}
 		if (power_source == POWER_CORD) {
-			if (SHOW_INPUT_VOLTS) {
-				tft.drawBitmap(0, 5, power_cord, 24, 9, tft.Color565(max(0, min(255, ((NUM_CELLS*MAX_VOLTS_PER_CELL)-v)*112)), max(0, min(255, (v-NUM_CELLS*MIN_VOLTS_PER_CELL)*112)), 0));
-				tft.setTextSize(1);
-				tft.setTextColor(tft.Color565(max(0, min(255, ((NUM_CELLS*MAX_VOLTS_PER_CELL)-v)*112)), max(0, min(255, (v-(NUM_CELLS*MIN_VOLTS_PER_CELL))*112)), 0), BLACK);
-				tft.setCursor(25,5);
-				tft.print(v,1);
-				tft.print("V ");
-				if ( v > NUM_CELLS*MAX_CHARGE_PER_CELL) {
-				  tft.setTextColor(WHITE,BLACK);
-				  tft.print(v_c3 + 0.3 ); // 0,3 for the shottky diode
-				  tft.print("Vbat");
+			uint8_t red = 0;
+			uint8_t green = 0;
+			uint8_t percent = 0;
+			tft.setTextSize(1);
+			tft.setCursor(30,5);
+
+			if (v > (v_c3+1.5)) {
+				if (v_c3 > NUM_CELLS*MIN_VOLTS_PER_CELL) {
+					// on wall power, with battery present.
+					// we print a cyan symbol to indicate that we're (likely) charging, and a green one if completed.
+					const unsigned char *symbol = get_battery_symbol(v_c3+0.35, false, nullptr, nullptr, &percent);
+					uint16_t color = tft.Color565(red, green, 0);
+					if (percent > 98) {
+						color = GREEN;
+					} else {
+						color = CYAN;
+					}
+					tft.drawBitmap(0, 5, symbol, 24, 9 , color, BLACK);
+				} else {
+					tft.drawBitmap(0, 5, power_cord, 24, 9 , GREEN, BLACK);
 				}
+				tft.setTextColor(WHITE,BLACK);
+				tft.print("DC "); tft.print(v,1); tft.print("V");
+				tft.fillRect(77, 5, 45, 9, BLACK);
 			} else {
-				tft.drawBitmap(0, 5, power_cord, 24, 9, tft.Color565(max(0, min(255, ((NUM_CELLS*MAX_VOLTS_PER_CELL)-v)*112)), max(0, min(255, (v-NUM_CELLS*MIN_VOLTS_PER_CELL)*112)), 0));
+				// on battery.
+				const unsigned char *symbol = get_battery_symbol(v_c3+0.35, false, &red, &green, &percent);
+				uint16_t color = tft.Color565(red, green, 0);
+				tft.drawBitmap(0, 5, symbol, 24, 9 , color, BLACK);
+				tft.setTextColor(WHITE,BLACK);
+				tft.print("BAT: ");
+				tft.print(v_c3+0.35, 1);
+				tft.print("V ");
+				tft.print(percent);
+				tft.print("% ");
 			}
 		} else if (power_source == POWER_LIPO || power_source == POWER_CHARGING) {
 			float volt[] = {v_c1, v_c2-v_c1, v_c3-v_c2};
