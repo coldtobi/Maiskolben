@@ -975,7 +975,7 @@ void loop(void) {
 	
 	if (sendNext <= millis()) {
 		sendNext += 100;
-#ifndef TEST_ADC
+#ifdef TEST_ADC
 		Serial.print(stored[0]);
 		Serial.print(";");
 		Serial.print(stored[1]);
@@ -1001,8 +1001,8 @@ void loop(void) {
 		Serial.print(v_c2);
 		Serial.print(";");
 		Serial.println(v);
-#endif
 		Serial.flush();
+#endif
 		display();
 	}
 	if (Serial.available()) {
