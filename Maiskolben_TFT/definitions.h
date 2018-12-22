@@ -68,8 +68,8 @@
 #define VIN         A7
 #endif
 
-#define kp          0.03
-#define ki          0.00025
+#define kp          0.035
+#define ki          0.0002
 #define kd          0.0
 
 #define TIME_COMPUTE_IN_MS          10
