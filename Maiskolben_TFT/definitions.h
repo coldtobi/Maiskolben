@@ -39,7 +39,7 @@
 #define MAX_CHARGE_PER_CELL (4.2) // When charged, full at 4.2
 #else
 // NOTE: LiFePO4 needs an own BMS! Do not use the LiIon charging circuitry that might be on your Maiskolben! Ignoring this warning can cause your cell to explode and may cause fires!
-#define MIN_VOLTS_PER_CELL  (2.5)   // LiFePo in my case, they can go down to 2.0V, my BMS wi4,2ll lockout at 2.1. The 2.75 are margin.
+#define MIN_VOLTS_PER_CELL  (3.0)   // LiFePo in my case, they can go down to 2.0V, my BMS wi4,2ll lockout at 2.1. The 2.75 are margin.
 #define MAX_VOLTS_PER_CELL  (3.2)  // LiFePo: nominal voltage is 3.2V
 #define MAX_CHARGE_PER_CELL (3.6) // When charged, full at 3.6V
 #endif

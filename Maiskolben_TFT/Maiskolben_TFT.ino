@@ -839,23 +839,26 @@ void display(void) {
 			tft.setCursor(30,5);
 
 			if (v > (v_c3+1.5)) {
-				if (v_c3 > NUM_CELLS*MIN_VOLTS_PER_CELL) {
+				if (v_c3 > 6.0) {
 					// on wall power, with battery present.
 					// we print a cyan symbol to indicate that we're (likely) charging, and a green one if completed.
-					const unsigned char *symbol = get_battery_symbol(v_c3+0.35, false, nullptr, nullptr, &percent);
+					const unsigned char *symbol = get_battery_symbol(v_c3+0.35, true, nullptr, nullptr, &percent);
 					uint16_t color = tft.Color565(red, green, 0);
 					if (percent > 98) {
 						color = GREEN;
+						tft.setTextColor(GREEN,BLACK);
+						tft.print("DC: "); tft.print(v, 1); tft.print("V");
+						tft.fillRect(77, 5, 40, 9, BLACK);
 					} else {
 						color = CYAN;
+						tft.setTextColor(CYAN,BLACK);
+						tft.print("BAT: "); tft.print(v_c3 + 0.25 ,2); tft.print("V");
+						tft.fillRect(89, 5, 32, 9, BLACK);
 					}
 					tft.drawBitmap(0, 5, symbol, 24, 9 , color, BLACK);
 				} else {
 					tft.drawBitmap(0, 5, power_cord, 24, 9 , GREEN, BLACK);
 				}
-				tft.setTextColor(WHITE,BLACK);
-				tft.print("DC "); tft.print(v,1); tft.print("V");
-				tft.fillRect(77, 5, 45, 9, BLACK);
 			} else {
 				// on battery.
 				const unsigned char *symbol = get_battery_symbol(v_c3+0.35, false, &red, &green, &percent);
