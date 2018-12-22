@@ -69,7 +69,7 @@
 #endif
 
 #define kp          0.03
-#define ki          0.00001
+#define ki          0.00025
 #define kd          0.0
 
 #define TIME_COMPUTE_IN_MS          10
