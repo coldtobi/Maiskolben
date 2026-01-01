@@ -25,11 +25,12 @@
 #define TEMP_UNDER_THRESHOLD  80 // x (TIME_COMPUTE_IN_MS + DELAY_BEFORE_MEASURE)
 #define THRES_MAX_DECEED       2 //max times the threshold temperature may be undercut by the current temperature
 
-#define WATCH_TEMP_PERIOD     (1500/20) // Time allowed (in meas cycles ~20ms) to raise temperature
-#define WATCH_TEMP_REBOUND   (1000/20) // Time after, when target has been reached previously, the temp may drop without re-arming the protection
-#define WATCH_TEMP_INCREASE   5 // by this degrees.
-#define WATCH_TEMP_DEACTIVATE 50 // deacticate the watching when we are this near the target (in °C) -- to avoid that loads
-
+// Protection: Make sure that the tip gets actually hotter when heated.
+#define WATCH_TEMP_PERIOD     (1500/20) // Time allowed (in measurement cycles) ~20ms) for temperature to raise. (x/20) gives you around x ms.
+#define WATCH_TEMP_INCREASE   5 // temperature must raise by this value (°C)
+// Rebound: When tip is suddenly cooled (e.g cleaning, or soldering), allow this extra time before re-actviating the protection.
+#define WATCH_TEMP_REBOUND   (1000/20) // Time, when target has been reached previously, where the temp may drop without re-arming the protection
+#define WATCH_TEMP_DEACTIVATE 30 // disarm the protection when the current temperature is close to the target temperature by this temperature (°C)
 
 // voltage ranges for the voltage display.
 #define NUM_CELLS (4)

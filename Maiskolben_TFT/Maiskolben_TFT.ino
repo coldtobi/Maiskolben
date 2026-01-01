@@ -926,7 +926,7 @@ void display(void) {
 void compute(void) {
 	static int16_t rising_protection_milestone_temperature = 0;
 	static int16_t rising_protection_timeout = WATCH_TEMP_PERIOD;
-	static int16_t rising_rebound_timeout = WATCH_TEMP_PERIOD;
+	static int16_t rising_rebound_timeout = WATCH_TEMP_REBOUND;
 	static bool rising_protection_target_reached = false;
 
 #ifndef USE_TFT_RESET
@@ -977,8 +977,9 @@ void compute(void) {
 				}
 			}
 		} else {
-			// we are near the target, time to disarm the protection..
+			// we are near the target, time to disarm the protection and rearm the rebound timer.
 			rising_protection_timeout = WATCH_TEMP_PERIOD;
+			rising_rebound_timeout = WATCH_TEMP_REBOUND;
 			rising_protection_target_reached = true;
 		}
 
