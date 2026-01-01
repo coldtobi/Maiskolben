@@ -13,13 +13,15 @@
 #define TEMP_STBY   150
 #define TEMP_COLD   (adc_offset + 15)
 
+#define PMAX (40) // max watts to pump into the tip. (note: Weller specifies the tips as 40W; the big RT-11 has 55W)
+
 #define SHUTOFF_ACTIVE
 #define BOOTHEAT_ACTIVE
 
 #define STANDBY_TIMEOUT 240 // seconds without any significant temperature drop, if exceeded it will standby
 #define OFF_TIMEOUT     900 // seconds in standby before turning off
 
-#define TEMP_RISE             30 //threshold temperature, that must be exceeded delta in given time:
+#define TEMP_RISE             30 //threshold temperature, that must be exceeded delta in given time: (from cold to ~70°C)
 #define TEMP_UNDER_THRESHOLD  80 // x (TIME_COMPUTE_IN_MS + DELAY_BEFORE_MEASURE)
 #define THRES_MAX_DECEED       2 //max times the threshold temperature may be undercut by the current temperature
 
@@ -30,6 +32,18 @@
 #define WATCH_TEMP_REBOUND   (1000/20) // Time, when target has been reached previously, where the temp may drop without re-arming the protection
 #define WATCH_TEMP_DEACTIVATE 30 // disarm the protection when the current temperature is close to the target temperature by this temperature (°C)
 
+// voltage ranges for the voltage display.
+#define NUM_CELLS (4)
+#if (false) // For LiFePO4, set to false. Be sure to read not below
+#define MIN_VOLTS_PER_CELL  (3.0)   // LiIon: Usually discharged until 3.0 V/cell
+#define MAX_VOLTS_PER_CELL (3.6)  // LiIon: Nominal at 3.6V
+#define MAX_CHARGE_PER_CELL (4.2) // When charged, full at 4.2
+#else
+// NOTE: LiFePO4 needs an own BMS! Do not use the LiIon charging circuitry that might be on your Maiskolben! Ignoring this warning can cause your cell to explode and may cause fires!
+#define MIN_VOLTS_PER_CELL  (3.0)   // LiFePo in my case, they can go down to 2.0V, my BMS wi4,2ll lockout at 2.1. The 2.75 are margin.
+#define MAX_VOLTS_PER_CELL  (3.2)  // LiFePo: nominal voltage is 3.2V
+#define MAX_CHARGE_PER_CELL (3.6) // When charged, full at 3.6V
+#endif
 //#define OLD_PWM
 
 //      RX          0
@@ -57,12 +71,12 @@
 #define VIN         A7
 #endif
 
-#define kp          0.03
-#define ki          0.00001
+#define kp          0.035
+#define ki          0.0002
 #define kd          0.0
 
 #define TIME_COMPUTE_IN_MS          10
-#define TIME_MEASURE_VOLTAGE_IN_MS 200
+#define TIME_MEASURE_VOLTAGE_IN_MS 50
 #define TIME_SW_POLL_IN_MS          10
 #define DELAY_BEFORE_MEASURE        10
 #define DELAY_MAIN_LOOP             10
@@ -113,6 +127,63 @@ const unsigned char power_cord [] PROGMEM =  {
 	0x00, 0xFF, 0xC0,
 	0x00, 0x00, 0xC0
 };
+
+const unsigned char battery_0 [] PROGMEM =  {
+	0b11111111, 0b11111111, 0b11111100,
+	0b10000000, 0b00000000, 0b00000111,
+	0b10000000, 0b00000000, 0b00000101,
+	0b10000000, 0b00000000, 0b00000101,
+	0b10000000, 0b00000000, 0b00000101,
+	0b10000000, 0b00000000, 0b00000111,
+	0b11111111, 0b11111111, 0b11111100,
+	0,0,0,	0,0,0,
+};
+
+
+const unsigned char battery_25 [] PROGMEM =  {
+	0b11111111, 0b11111111, 0b11111100,
+	0b11111100, 0b00000000, 0b00000111,
+	0b11111100, 0b00000000, 0b00000101,
+	0b11111100, 0b00000000, 0b00000101,
+	0b11111100, 0b00000000, 0b00000101,
+	0b11111100, 0b00000000, 0b00000111,
+	0b11111111, 0b11111111, 0b11111100,
+	0,0,0,	0,0,0,
+};
+
+const unsigned char battery_50 [] PROGMEM =  {
+	0b11111111, 0b11111111, 0b11111100,
+	0b11111111, 0b11100000, 0b00000111,
+	0b11111111, 0b11100000, 0b00000101,
+	0b11111111, 0b11100000, 0b00000101,
+	0b11111111, 0b11100000, 0b00000101,
+	0b11111111, 0b11100000, 0b00000111,
+	0b11111111, 0b11111111, 0b11111100,
+	0,0,0,	0,0,0,
+};
+
+const unsigned char battery_75 [] PROGMEM = {
+	0b11111111, 0b11111111, 0b11111100,
+	0b11111111, 0b11111111, 0b00000111,
+	0b11111111, 0b11111111, 0b00000101,
+	0b11111111, 0b11111111, 0b00000101,
+	0b11111111, 0b11111111, 0b00000101,
+	0b11111111, 0b11111111, 0b00000111,
+	0b11111111, 0b11111111, 0b11111100,
+	0,0,0,	0,0,0,
+};
+
+const unsigned char battery_100 [] PROGMEM =  {
+	0b11111111, 0b11111111, 0b11111100,
+	0b11111111, 0b11111111, 0b11111111,
+	0b11111111, 0b11111111, 0b11111111,
+	0b11111111, 0b11111111, 0b11111111,
+	0b11111111, 0b11111111, 0b11111111,
+	0b11111111, 0b11111111, 0b11111111,
+	0b11111111, 0b11111111, 0b11111100,
+	0,0,0,	0,0,0,
+};
+
 
 const unsigned char maiskolben [] PROGMEM =  {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 

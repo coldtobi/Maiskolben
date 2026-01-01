@@ -12,6 +12,12 @@
  */
 //#define USE_TFT_RESET
 
+/* show splash screen only a short time; to enter options, press power button when turning the maiskolben on. */
+#define FAST_BOOT
+
+/* display the input voltage (define to true to show, to false to hide */
+#define SHOW_INPUT_VOLTS true
+
 /*
  * If red is blue and blue is red change this
  * If not sure, leave commented, you will be shown a setup screen
@@ -72,15 +78,18 @@ TFT_ILI9163C tft = TFT_ILI9163C(TFT_CS,  TFT_DC, STBY_NO);
 #else
 TFT_ILI9163C tft = TFT_ILI9163C(TFT_CS,  TFT_DC);
 #endif
-#define	BLACK   0x0000
-#define	BLUE    0x001F
-#define	RED     0xF800
-#define	GREEN   0x07E0
-#define CYAN    0x07FF
-#define MAGENTA 0xF81F
-#define YELLOW  0xFFE0  
-#define WHITE   0xFFFF
-#define GRAY    0x94B2
+
+#define COLOR(r,g,b) ((((r	&0xFFu)>>3u)<<11u) + (((g&0xFFu)>>2u)<<5u) + ((b&0xFFu)>>3u))
+
+#define	BLACK   COLOR(0,0,0)
+#define	BLUE    COLOR(0,0,255)
+#define	RED     COLOR(255,20,20)
+#define	GREEN   COLOR(0, 255, 0)
+#define CYAN    COLOR(0, 255, 255)
+#define MAGENTA COLOR(255, 0, 255)
+#define YELLOW  COLOR(255, 255, 0)
+#define WHITE   COLOR(255,255,255)
+#define GRAY    COLOR(144,148,140)
 
 PID heaterPID(&cur_td, &pid_val, &set_td, kp, ki, kd, DIRECT);
 
@@ -222,6 +231,9 @@ void setup(void) {
 	if (force_menu) optionMenu();
 	else {
 		updateRevision();
+#ifdef FAST_BOOT
+		attachInterrupt(digitalPinToInterrupt(SW_STBY), optionMenu, LOW);
+#endif
 		tft.drawBitmap(0, 20, maiskolben, 160, 64, YELLOW);
 		tft.setCursor(20,86);
 		tft.setTextColor(YELLOW);
@@ -234,13 +246,18 @@ void setup(void) {
 		tft.setCursor(46,120);
 		tft.print("HW Revision ");
 		tft.print(revision);
+
+#ifdef FAST_BOOT
 		//Allow Options to be set at startup
+		delay(200);
+#else
 		delay(100);
 		attachInterrupt(digitalPinToInterrupt(SW_STBY), optionMenu, LOW);
 		for (int i = 0; i < 10 && !menu_dismissed; i++) {
 			digitalWrite(HEAT_LED, i % 2);
 			delay(250);
 		}
+#endif
 		detachInterrupt(digitalPinToInterrupt(SW_STBY));
 	}
 	/*
@@ -499,7 +516,11 @@ void timer_sw_poll(void) {
 		cnt_off_press = min(201, cnt_off_press+1);
 	} else {
 		if (cnt_off_press > 0 && cnt_off_press <= 100) {
-			setStandby(!stby);
+			if (!off) setStandby(!stby);
+			if (off) {
+				setStandby(false);
+				setOff(false);
+			}
 		}
 		cnt_off_press = 0;
 	}
@@ -608,6 +629,37 @@ void printTemp(float t) {
 	tft.print((int)t);
 }
 
+
+const unsigned char* get_battery_symbol(float v_bat, bool charging, uint8_t *red, uint8_t *green, uint8_t *percent_out ) {
+	uint8_t percent;
+	if (charging) {
+		float D_MAX = NUM_CELLS * (MAX_CHARGE_PER_CELL - MIN_VOLTS_PER_CELL);
+		float delta_v = (v_bat) - (NUM_CELLS * MIN_VOLTS_PER_CELL);
+		// Ladezustand
+		percent = min(100,max(0,(delta_v / D_MAX ) * 100.0));
+	} else {
+		float D_MAX = NUM_CELLS * (MAX_VOLTS_PER_CELL - MIN_VOLTS_PER_CELL);
+		float delta_v = (v_bat) - (NUM_CELLS * MIN_VOLTS_PER_CELL);
+		// Ladezustand
+		percent = min(100,max(0,(delta_v / D_MAX ) * 100.0));
+	}
+
+	if (red && green) {
+		*green = ((float) percent) * 2.55;
+		*red = 255-*green;
+	}
+
+	if (percent_out) {
+		*percent_out = percent;
+	}
+
+	if(percent >= 90) return battery_100;
+	if(percent >= 75) return battery_75;
+	if(percent >= 50) return battery_50;
+	if(percent >= 25) return battery_25;
+	return battery_0;
+}
+
 void display(void) {
 	if (force_redraw) tft.fillScreen(BLACK);
 	int16_t temperature = cur_t; //buffer volatile value
@@ -673,17 +725,17 @@ void display(void) {
 			if (stby || stby_layoff) {
 				old_stby = true;
 				tft.setTextColor(YELLOW, BLACK);
-				tft.print(F("STBY  "));
+				tft.print(F("STBY "));
 			} else {
 				old_stby = false;
 				set_t_old = set_t;
 				tft.setTextColor(WHITE, BLACK);
-				tft.write(' ');
+				//tft.write(' ');
 				printTemp(set_t);
 				tft.write(247);
 				tft.write(fahrenheit?'F':'C');
-				tft.fillTriangle(149, 50, 159, 50, 154, 38, (set_t < TEMP_MAX) ? WHITE : GRAY);
-				tft.fillTriangle(149, 77, 159, 77, 154, 90, (set_t > TEMP_MIN) ? WHITE : GRAY);
+				tft.fillTriangle(140, 50, 150, 50, 145, 38, (set_t < TEMP_MAX) ? WHITE : GRAY);
+				tft.fillTriangle(140, 77, 150, 77, 145, 90, (set_t > TEMP_MIN) ? WHITE : GRAY);
 			}
 		}
 		if (!off) {
@@ -726,7 +778,7 @@ void display(void) {
 			if (temperature < TEMP_COLD) {
 				tft.print(F("COLD  "));
 			} else {
-				tft.write(' ');
+				//tft.write(' ');
 				printTemp(temperature);
 				tft.write(247);
 				tft.write(fahrenheit?'F':'C');
@@ -745,7 +797,7 @@ void display(void) {
 		tft.setTextColor(YELLOW, BLACK);
 		tft.setCursor(122,5);
 		tft.setTextSize(2);
-		int power = min(15,v)*min(15,v)/4.8*pwm/255;
+		int power =v*v/4.8*pwm/255;
 		if (power < 10) tft.write(' ');
 		tft.print(power);
 		tft.write('W');
@@ -780,15 +832,45 @@ void display(void) {
 			power_source_old = power_source;
 		}
 		if (power_source == POWER_CORD) {
-			/*if (v > v_c3) {
-				tft.setTextSize(2);
-				tft.setTextColor(GREEN, BLACK);
-				tft.setCursor(0,5);
-				tft.print(v);
+			uint8_t red = 0;
+			uint8_t green = 0;
+			uint8_t percent = 0;
+			tft.setTextSize(1);
+			tft.setCursor(30,5);
+
+			if (v > (v_c3+1.5)) {
+				if (v_c3 > 6.0) {
+					// on wall power, with battery present.
+					// we print a cyan symbol to indicate that we're (likely) charging, and a green one if completed.
+					const unsigned char *symbol = get_battery_symbol(v_c3+0.35, true, nullptr, nullptr, &percent);
+					uint16_t color = tft.Color565(red, green, 0);
+					if (percent > 98) {
+						color = GREEN;
+						tft.setTextColor(GREEN,BLACK);
+						tft.print("DC: "); tft.print(v, 1); tft.print("V");
+						tft.fillRect(77, 5, 40, 9, BLACK);
+					} else {
+						color = CYAN;
+						tft.setTextColor(CYAN,BLACK);
+						tft.print("BAT: "); tft.print(v_c3 + 0.25 ,2); tft.print("V");
+						tft.fillRect(89, 5, 32, 9, BLACK);
+					}
+					tft.drawBitmap(0, 5, symbol, 24, 9 , color, BLACK);
+				} else {
+					tft.drawBitmap(0, 5, power_cord, 24, 9 , GREEN, BLACK);
+				}
+			} else {
+				// on battery.
+				const unsigned char *symbol = get_battery_symbol(v_c3+0.35, false, &red, &green, &percent);
+				uint16_t color = tft.Color565(red, green, 0);
+				tft.drawBitmap(0, 5, symbol, 24, 9 , color, BLACK);
+				tft.setTextColor(WHITE,BLACK);
+				tft.print("BAT: ");
+				tft.print(v_c3+0.35, 1);
 				tft.print("V ");
-			} else {*/
-				tft.drawBitmap(0, 5, power_cord, 24, 9, tft.Color565(max(0, min(255, (14.5-v)*112)), max(0, min(255, (v-11)*112)), 0));
-			//}
+				tft.print(percent);
+				tft.print("% ");
+			}
 		} else if (power_source == POWER_LIPO || power_source == POWER_CHARGING) {
 			float volt[] = {v_c1, v_c2-v_c1, v_c3-v_c2};
 			uint8_t volt_disp[] = {max(1,min(16,(volt[0]-3.0)*14.2)), max(1,min(16,(volt[1]-3.0)*14.2)), max(1,min(16,(volt[2]-3.0)*14.2))};
@@ -799,11 +881,11 @@ void display(void) {
 				}
 			}
 			for (uint8_t i = 0; i < 3; i++) {
-				if (volt[i] < 3.20) {
+				if (volt[i] < MIN_VOLTS_PER_CELL) {
 					setError(BATTERY_LOW);
 					tft.fillRect(13, 7+14*i, volt_disp[i], 8, blink?RED:BLACK);
 				} else {
-					tft.fillRect(13, 7+14*i, volt_disp[i], 8, tft.Color565(250-min(250, max(0, (volt[i]-3.4)*1000.0)), max(0,min(250, (volt[i]-3.15)*1000.0)), 0));
+					tft.fillRect(13, 7+14*i, volt_disp[i], 8, tft.Color565(250-min(250, max(0, (volt[i]-MIN_VOLTS_PER_CELL)*1000.0)), max(0,min(250, (volt[i]-MIN_VOLTS_PER_CELL)*1000.0)), 0));
 				}
 				tft.fillRect(13+volt_disp[i], 7+14*i, 17-volt_disp[i], 8, BLACK);
 			}
@@ -922,10 +1004,19 @@ void compute(void) {
 	last_measured = cur_t;
 
 	heaterPID.Compute();
-	if (error != NO_ERROR || off)
+
+	// Power limitation.
+	// Tips are rated for 40W, do not exceed that.
+	// note t-hat we have inherently only 50% PWM, as we have it on 10ms and then wait with pwm off for another 10ms.
+	// Formula: P = 0.5 * ( U^2 / ( R )) * (pwm)
+	float pwm_max = 2 * PMAX / ((v*v) / 2.4);
+	if (pwm_max > pid_val) pwm_max = pid_val;
+
+	if (error != NO_ERROR || off) {
 		pwm = 0;
-	else
-		pwm = min(255,pid_val*255);
+	} else {
+		pwm = min(255, pwm_max * 255);
+	}
 	analogWrite(HEATER_PWM, pwm);
 }
 
@@ -965,7 +1056,7 @@ void loop(void) {
 	
 	if (sendNext <= millis()) {
 		sendNext += 100;
-#ifndef TEST_ADC
+#ifdef TEST_ADC
 		Serial.print(stored[0]);
 		Serial.print(";");
 		Serial.print(stored[1]);
@@ -991,8 +1082,8 @@ void loop(void) {
 		Serial.print(v_c2);
 		Serial.print(";");
 		Serial.println(v);
-#endif
 		Serial.flush();
+#endif
 		display();
 	}
 	if (Serial.available()) {
