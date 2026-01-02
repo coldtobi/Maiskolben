@@ -309,76 +309,187 @@ void setDisplayMode(boolean bgr) {
 	tft.setRotation(3);
 }
 
+#ifdef SHUTOFF_ACTIVE
+#define OPT_BIT_SHUTOFF OPT_BIT
+#else
+#define OPT_BIT_SHUTOFF OPT_BIT_DISABLED
+#endif
+
+#ifdef BOOTHEAT_ACTIVE
+#define OPT_BIT_BHEAT OPT_BIT
+#else
+#define OPT_BIT_BHEAT OPT_BIT_DISABLED
+#endif
+
 void optionMenu(void) {
+	uint8_t first_option = 0;  // The current option displayed on the top-line.
+	uint8_t opt = 0;		// The current line on the display that is selected.
+
+	// for the declaration table.
+	enum optiontype {
+		OPT_BIT,
+		OPT_BIT_DISABLED,
+		OPT_8BIT_VALUE,
+	};
+
+	// defined options.
+	struct optionslist {
+		char *title;
+		enum optiontype type;
+
+		uint8_t min_or_bit;  // bitmask to be orded / deleted on option toggle or min value for 8-bit value
+		uint8_t max;         // max value for 8-bit-value
+		uint8_t stepsize;    // step size for +/- for 8-bit-value
+		uint8_t *target;     // target variable.
+	} optionslist[] = {
+		//  title			type            	min		max		step	target
+		//										mask
+		{ "Autoshutdown",	OPT_BIT_SHUTOFF,	1,		0,		0,		(uint8_t *)&autopower },
+		{ "Heat on boot",	OPT_BIT_BHEAT,		1,		0,		0,		(uint8_t *)&bootheat },
+		{ "Fahrenheit",		OPT_BIT,			1, 		0, 		0, 		(uint8_t *)&fahrenheit },
+	};
+
+	// how many chars do fit into a line?
+	constexpr uint8_t chars_per_line = 13;    // number of chars per line.
+	constexpr uint8_t displayed_options = 3;  // number of option-lines on display
+	constexpr uint8_t num_options = 4;        // total number of options in optionlist[]
+
+	// sanitize 8-bit values
+	for (int i = 0; i < num_options; i++) {
+		if (optionslist[i].type != OPT_8BIT_VALUE) continue;
+		uint8_t value = *(optionslist[i].target);
+		if (value < optionslist[i].min_or_bit) value = optionslist[i].min_or_bit;
+		if (value > optionslist[i].max) value = optionslist[i].max;
+		*(optionslist[i].target) = value;
+	}
+
+	const char *onoffexit = "ON  OFF EXIT";
+	const char *plusminusexit = " +   -  EXIT";
+
+	// Prepare Screen
 	tft.fillScreen(BLACK);
 	digitalWrite(HEAT_LED, LOW);
 	tft.setTextSize(2);
 	tft.setCursor(0,0);
 	tft.setTextColor(WHITE);
 	tft.println("Options\n");
-	tft.setTextColor(WHITE);
-	tft.setCursor(10,112);
-	tft.print("ON  OFF EXIT");
-	uint8_t options = 3;
-	uint8_t opt = 0;
+
 	boolean redraw = true;
 	while (true) {
 		if (redraw) {
-			tft.setCursor(0,36);
-			#ifdef SHUTOFF_ACTIVE
-				tft.setTextColor(autopower?GREEN:RED);
-			#else
-				tft.setTextColor(GRAY);
-			#endif
-			tft.println(" Autoshutdown");
-			#ifdef BOOTHEAT_ACTIVE
-				tft.setTextColor(bootheat?GREEN:RED);
-			#else
-				tft.setTextColor(GRAY);
-			#endif
-			tft.println(" Heat on boot");
-			tft.setTextColor(fahrenheit?GREEN:RED);
-			tft.println(" Fahrenheit");
+			tft.setCursor(0, 2 * 18);
+			// Render options from first_option on.
+			for (uint8_t i = 0; i < displayed_options; i++) {
+				uint8_t printed = 0;
+				uint8_t entry = i + first_option;
+				uint16_t color = GRAY;
+				bool is_enabled = 0;
+				if (optionslist[entry].type == OPT_BIT) {
+					uint8_t value = optionslist[entry].min_or_bit & *(optionslist[entry].target);
+					if (value) color = GREEN;
+					else color = RED;
+				} else if (optionslist[entry].type == OPT_8BIT_VALUE) {
+					color = GREEN;
+				}
+				if (opt == i) tft.setTextColor(WHITE);
+				else tft.setTextColor(BLACK);
+				tft.print(">");
+				tft.setTextColor(color, BLACK);
+				tft.print(optionslist[entry].title);
+				printed = 1 + strlen(optionslist[entry].title);
 			
-			tft.setCursor(0, (opt+2)*18);
-			tft.setTextColor(WHITE);
-			tft.print(">");
+				if (optionslist[entry].type == OPT_8BIT_VALUE) {
+					uint8_t val = *(optionslist[entry].target);
+					tft.print(" ");
+					if (val < 100) tft.print(" ");
+					if (val < 10) tft.print(" ");
+					tft.print(val);
+					printed += 3;
+				}
+				for (uint8_t j = printed; j < chars_per_line; j++) tft.print(" ");
+				tft.println("");
+			}
+
+			// Render operationstext
+			tft.setTextColor(WHITE, BLACK);
+			tft.setCursor(10, 112);
+			if (optionslist[opt + first_option].type == OPT_8BIT_VALUE) {
+				tft.print(plusminusexit);
+			} else {
+				tft.print(onoffexit);
+			}
+
+			// Render hints that there are more options
+			if (first_option) tft.setTextColor(YELLOW, BLACK);
+			else tft.setTextColor(BLACK, BLACK);
+			tft.setCursor(142, 1 * 18);
+			tft.print((char)0x18);  // "arrow up"
+
+			if (num_options - first_option > displayed_options) tft.setTextColor(YELLOW, BLACK);
+			else tft.setTextColor(BLACK, BLACK);
+			tft.setCursor(142, (displayed_options + 2) * 18);
+			tft.print((char)0x19);  // "arrow down"
+
 			redraw = false;
 		}
+
+		// Button handling.
+		// opt is current line on screen.
 		if (!digitalRead(SW_UP)) {
-			tft.setCursor(0, (opt+2)*18);
-			tft.setTextColor(BLACK);
-			tft.print(">");
-			opt = (opt+options-1)%options;
+			if (opt == 0 && first_option) {
+				first_option--;
+			} else if (opt) {
+				opt--;
+			}
 			while (!digitalRead(SW_UP)) delay(100);
 			redraw = true;
 		}
 		if (!digitalRead(SW_DOWN)) {
-			tft.setCursor(0, (opt+2)*18);
-			tft.setTextColor(BLACK);
-			tft.print(">");
-			opt = (opt+1)%options;
+			if (displayed_options - 1 > opt) {
+				opt++;
+			} else if (num_options - 1 > opt + first_option) {
+				first_option++;
+			}
 			while (!digitalRead(SW_DOWN)) delay(100);
 			redraw = true;
 		}
+
 		if (!digitalRead(SW_T1)) {
-			switch (opt) {
-				case 0: autopower = 1; break;
-				case 1: bootheat = 1; break;
-				case 2: fahrenheit = 1; break;
+			uint8_t entry = opt + first_option;
+			enum optiontype type = optionslist[entry].type;
+			switch (type) {
+				case OPT_BIT:
+					*(optionslist[entry].target) |= optionslist[entry].min_or_bit;
+					break;
+				case OPT_8BIT_VALUE:
+					uint8_t value = *(optionslist[entry].target) + optionslist[entry].stepsize;
+					if (value > optionslist[entry].max) value = optionslist[entry].max;
+					*(optionslist[entry].target) = value;
+					break;
 			}
 			redraw = true;
 		}
+
 		if (!digitalRead(SW_T2)) {
-			switch (opt) {
-				case 0: autopower = 0; break;
-				case 1: bootheat = 0; break;
-				case 2: fahrenheit = 0; break;
+			uint8_t entry = opt + first_option;
+			enum optiontype type = optionslist[entry].type;
+			switch (type) {
+				case OPT_BIT:
+					*(optionslist[entry].target) &= ~(optionslist[entry].min_or_bit);
+					break;
+				case OPT_8BIT_VALUE:
+					uint8_t value = *(optionslist[entry].target);
+					if (value >= optionslist[entry].stepsize) value -= optionslist[entry].stepsize;
+					else value = 0;
+					if (value < optionslist[entry].min_or_bit) value = optionslist[entry].min_or_bit;
+					*(optionslist[entry].target) = value;
 			}
 			redraw = true;
 		}
+
 		if (!digitalRead(SW_T3)) break;
 	}
+
 	EEPROM.update(EEPROM_OPTIONS, (fahrenheit << 2) | (bootheat << 1) | autopower);
 	updateRevision();
 	EEPROM.update(EEPROM_VERSION, EE_VERSION);
