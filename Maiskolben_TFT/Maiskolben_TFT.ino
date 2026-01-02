@@ -12,6 +12,9 @@
  */
 //#define USE_TFT_RESET
 
+/* show splash screen only a short time; to enter options, press power button when turning the maiskolben on. */
+#define FAST_BOOT
+
 /*
  * If red is blue and blue is red change this
  * If not sure, leave commented, you will be shown a setup screen
@@ -72,15 +75,18 @@ TFT_ILI9163C tft = TFT_ILI9163C(TFT_CS,  TFT_DC, STBY_NO);
 #else
 TFT_ILI9163C tft = TFT_ILI9163C(TFT_CS,  TFT_DC);
 #endif
-#define	BLACK   0x0000
-#define	BLUE    0x001F
-#define	RED     0xF800
-#define	GREEN   0x07E0
-#define CYAN    0x07FF
-#define MAGENTA 0xF81F
-#define YELLOW  0xFFE0  
-#define WHITE   0xFFFF
-#define GRAY    0x94B2
+
+#define COLOR(r,g,b) ((((r	&0xFFu)>>3u)<<11u) + (((g&0xFFu)>>2u)<<5u) + ((b&0xFFu)>>3u))
+
+#define	BLACK   COLOR(0,0,0)
+#define	BLUE    COLOR(0,0,255)
+#define	RED     COLOR(255,20,20)
+#define	GREEN   COLOR(0, 255, 0)
+#define CYAN    COLOR(0, 255, 255)
+#define MAGENTA COLOR(255, 0, 255)
+#define YELLOW  COLOR(255, 255, 0)
+#define WHITE   COLOR(255,255,255)
+#define GRAY    COLOR(144,148,140)
 
 PID heaterPID(&cur_td, &pid_val, &set_td, kp, ki, kd, DIRECT);
 
@@ -222,6 +228,9 @@ void setup(void) {
 	if (force_menu) optionMenu();
 	else {
 		updateRevision();
+#ifdef FAST_BOOT
+		attachInterrupt(digitalPinToInterrupt(SW_STBY), optionMenu, LOW);
+#endif
 		tft.drawBitmap(0, 20, maiskolben, 160, 64, YELLOW);
 		tft.setCursor(20,86);
 		tft.setTextColor(YELLOW);
@@ -234,13 +243,18 @@ void setup(void) {
 		tft.setCursor(46,120);
 		tft.print("HW Revision ");
 		tft.print(revision);
+
+#ifdef FAST_BOOT
 		//Allow Options to be set at startup
+		delay(200);
+#else
 		delay(100);
 		attachInterrupt(digitalPinToInterrupt(SW_STBY), optionMenu, LOW);
 		for (int i = 0; i < 10 && !menu_dismissed; i++) {
 			digitalWrite(HEAT_LED, i % 2);
 			delay(250);
 		}
+#endif
 		detachInterrupt(digitalPinToInterrupt(SW_STBY));
 	}
 	/*
@@ -499,7 +513,7 @@ void timer_sw_poll(void) {
 		cnt_off_press = min(201, cnt_off_press+1);
 	} else {
 		if (cnt_off_press > 0 && cnt_off_press <= 100) {
-			setStandby(!stby);
+			if (!off) setStandby(!stby);
 		}
 		cnt_off_press = 0;
 	}
@@ -638,6 +652,10 @@ void display(void) {
 				case NO_TIP:
 					tft.print(F("Error: No tip connected\nTip slipped out?"));
 					break;
+				case FAILED_TO_HEAT:
+					tft.print(F("Error: Heating\nTemp not increasing."));
+					break;
+
 			}
 			tft.setTextSize(2);
 			tft.setTextColor(YELLOW, BLACK);
@@ -669,17 +687,17 @@ void display(void) {
 			if (stby || stby_layoff) {
 				old_stby = true;
 				tft.setTextColor(YELLOW, BLACK);
-				tft.print(F("STBY  "));
+				tft.print(F("STBY "));
 			} else {
 				old_stby = false;
 				set_t_old = set_t;
 				tft.setTextColor(WHITE, BLACK);
-				tft.write(' ');
+				//tft.write(' ');
 				printTemp(set_t);
 				tft.write(247);
 				tft.write(fahrenheit?'F':'C');
-				tft.fillTriangle(149, 50, 159, 50, 154, 38, (set_t < TEMP_MAX) ? WHITE : GRAY);
-				tft.fillTriangle(149, 77, 159, 77, 154, 90, (set_t > TEMP_MIN) ? WHITE : GRAY);
+				tft.fillTriangle(140, 50, 150, 50, 145, 38, (set_t < TEMP_MAX) ? WHITE : GRAY);
+				tft.fillTriangle(140, 77, 150, 77, 145, 90, (set_t > TEMP_MIN) ? WHITE : GRAY);
 			}
 		}
 		if (!off) {
@@ -722,7 +740,7 @@ void display(void) {
 			if (temperature < TEMP_COLD) {
 				tft.print(F("COLD  "));
 			} else {
-				tft.write(' ');
+				//tft.write(' ');
 				printTemp(temperature);
 				tft.write(247);
 				tft.write(fahrenheit?'F':'C');
@@ -838,12 +856,19 @@ void display(void) {
 }
 
 void compute(void) {
+	static int16_t rising_protection_milestone_temperature = 0;
+	static int16_t rising_protection_timeout = WATCH_TEMP_PERIOD;
+	static int16_t rising_rebound_timeout = WATCH_TEMP_PERIOD;
+	static bool rising_protection_target_reached = false;
+
 #ifndef USE_TFT_RESET
 	setStandbyLayoff(!digitalRead(STBY_NO)); //do not measure while heater is active, potential is not neccessary == GND
 #endif
 	cur_t = getTemperature();
 	if (off) {
 		target_t = 0;
+		rising_protection_milestone_temperature = 0;
+		rising_protection_timeout = WATCH_TEMP_PERIOD;
 		if (cur_t < adc_offset + TEMP_RISE) {
 			threshold_counter = TEMP_UNDER_THRESHOLD; //reset counter
 		}
@@ -856,6 +881,44 @@ void compute(void) {
 		if (cur_t-last_measured <= -30 && last_measured != 999) {
 			setError(EXCESSIVE_FALL); //decrease of more than 30 degree is uncommon, short of ring and gnd is possible.
 		}
+
+		// if target_t has been lowered, make sure that we also lower that milestone temperature
+		if (target_t < rising_protection_milestone_temperature) {
+			rising_protection_milestone_temperature = target_t;
+		}
+
+		// ensure that the temperature is actually rising when it should.
+		if(target_t - cur_t > WATCH_TEMP_DEACTIVATE ) {
+			// temperature is lower than setpoint by WATCH_TEMP_DEACTIVATE °C.
+			if (rising_protection_target_reached) {
+				// if previously we've been at target, e.g cleaning the tip might drop the temp significantly in a short time.
+				// so we need to temporarily suspend the protection and also continue it with a lower milestone.
+				if(rising_rebound_timeout) { rising_rebound_timeout--; }
+				else {
+					// rebound timeout expired, arm protection again.
+					rising_protection_milestone_temperature = cur_t + WATCH_TEMP_INCREASE;
+					rising_protection_target_reached = false;
+				}
+			} else {
+				// target was previously not reached, see if next milestone has been reached.
+				if (cur_t >= rising_protection_milestone_temperature + WATCH_TEMP_INCREASE) {
+					rising_protection_milestone_temperature = cur_t	+ WATCH_TEMP_INCREASE; // Yes, raise the bar.
+					rising_protection_timeout = WATCH_TEMP_PERIOD; // and give a new time window.
+				} else {
+					rising_protection_timeout--; // milestone not reached.
+				}
+			}
+		} else {
+			// we are near the target, time to disarm the protection..
+			rising_protection_timeout = WATCH_TEMP_PERIOD;
+			rising_protection_target_reached = true;
+		}
+
+		if(0 == rising_protection_timeout) {
+			// milestone not reached, E-STOP.
+			setError(FAILED_TO_HEAT);
+		}
+
 		if (cur_t < adc_offset + TEMP_RISE) {
 			if (threshold_counter == 0) {
 				setError(NOT_HEATING); //temperature is not reached in desired time, short of sensor and gnd too?
@@ -915,7 +978,7 @@ void loop(void) {
 	
 	if (sendNext <= millis()) {
 		sendNext += 100;
-#ifndef TEST_ADC
+#ifdef TEST_ADC
 		Serial.print(stored[0]);
 		Serial.print(";");
 		Serial.print(stored[1]);
@@ -941,8 +1004,8 @@ void loop(void) {
 		Serial.print(v_c2);
 		Serial.print(";");
 		Serial.println(v);
-#endif
 		Serial.flush();
+#endif
 		display();
 	}
 	if (Serial.available()) {
