@@ -48,7 +48,7 @@ volatile uint8_t pwm, threshold_counter;
 volatile int16_t cur_t, last_measured;
 volatile error_type error = NO_ERROR;
 error_type error_old;
-int16_t stored[3] = {300, 350, 450}, set_t = TEMP_MIN, set_t_old, cur_t_old, target_t;
+int16_t stored[3] = { 300, 350, 450 }, set_t = TEMP_MIN, set_t_old, cur_t_old, target_t, old_target_t;
 double pid_val, cur_td, set_td;
 uint8_t store_to = 255;
 p_source power_source, power_source_old = NO_INIT;
