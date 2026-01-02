@@ -48,7 +48,7 @@ volatile uint8_t pwm, threshold_counter;
 volatile int16_t cur_t, last_measured;
 volatile error_type error = NO_ERROR;
 error_type error_old;
-int16_t stored[3] = {300, 350, 450}, set_t = TEMP_MIN, set_t_old, cur_t_old, target_t;
+int16_t stored[3] = { 300, 350, 450 }, set_t = TEMP_MIN, set_t_old, cur_t_old, target_t, old_target_t;
 double pid_val, cur_td, set_td;
 uint8_t store_to = 255;
 p_source power_source, power_source_old = NO_INIT;
@@ -629,6 +629,37 @@ void printTemp(float t) {
 	tft.print((int)t);
 }
 
+
+const unsigned char* get_battery_symbol(float v_bat, bool charging, uint8_t *red, uint8_t *green, uint8_t *percent_out ) {
+	uint8_t percent;
+	if (charging) {
+		float D_MAX = NUM_CELLS * (MAX_CHARGE_PER_CELL - MIN_VOLTS_PER_CELL);
+		float delta_v = (v_bat) - (NUM_CELLS * MIN_VOLTS_PER_CELL);
+		// Ladezustand
+		percent = min(100,max(0,(delta_v / D_MAX ) * 100.0));
+	} else {
+		float D_MAX = NUM_CELLS * (MAX_VOLTS_PER_CELL - MIN_VOLTS_PER_CELL);
+		float delta_v = (v_bat) - (NUM_CELLS * MIN_VOLTS_PER_CELL);
+		// Ladezustand
+		percent = min(100,max(0,(delta_v / D_MAX ) * 100.0));
+	}
+
+	if (red && green) {
+		*green = ((float) percent) * 2.55;
+		*red = 255-*green;
+	}
+
+	if (percent_out) {
+		*percent_out = percent;
+	}
+
+	if(percent >= 90) return battery_100;
+	if(percent >= 75) return battery_75;
+	if(percent >= 50) return battery_50;
+	if(percent >= 25) return battery_25;
+	return battery_0;
+}
+
 void display(void) {
 	if (force_redraw) tft.fillScreen(BLACK);
 	int16_t temperature = cur_t; //buffer volatile value
@@ -801,20 +832,44 @@ void display(void) {
 			power_source_old = power_source;
 		}
 		if (power_source == POWER_CORD) {
-			if (SHOW_INPUT_VOLTS) {
-				tft.drawBitmap(0, 5, power_cord, 24, 9, tft.Color565(max(0, min(255, ((NUM_CELLS*MAX_VOLTS_PER_CELL)-v)*112)), max(0, min(255, (v-NUM_CELLS*MIN_VOLTS_PER_CELL)*112)), 0));
-				tft.setTextSize(1);
-				tft.setTextColor(tft.Color565(max(0, min(255, ((NUM_CELLS*MAX_VOLTS_PER_CELL)-v)*112)), max(0, min(255, (v-(NUM_CELLS*MIN_VOLTS_PER_CELL))*112)), 0), BLACK);
-				tft.setCursor(25,5);
-				tft.print(v,1);
-				tft.print("V ");
-				if ( v > NUM_CELLS*MAX_CHARGE_PER_CELL) {
-				  tft.setTextColor(WHITE,BLACK);
-				  tft.print(v_c3 + 0.3 ); // 0,3 for the shottky diode
-				  tft.print("Vbat");
+			uint8_t red = 0;
+			uint8_t green = 0;
+			uint8_t percent = 0;
+			tft.setTextSize(1);
+			tft.setCursor(30,5);
+
+			if (v > (v_c3+1.5)) {
+				if (v_c3 > 6.0) {
+					// on wall power, with battery present.
+					// we print a cyan symbol to indicate that we're (likely) charging, and a green one if completed.
+					const unsigned char *symbol = get_battery_symbol(v_c3+0.35, true, nullptr, nullptr, &percent);
+					uint16_t color = tft.Color565(red, green, 0);
+					if (percent > 98) {
+						color = GREEN;
+						tft.setTextColor(GREEN,BLACK);
+						tft.print("DC: "); tft.print(v, 1); tft.print("V");
+						tft.fillRect(77, 5, 40, 9, BLACK);
+					} else {
+						color = CYAN;
+						tft.setTextColor(CYAN,BLACK);
+						tft.print("BAT: "); tft.print(v_c3 + 0.25 ,2); tft.print("V");
+						tft.fillRect(89, 5, 32, 9, BLACK);
+					}
+					tft.drawBitmap(0, 5, symbol, 24, 9 , color, BLACK);
+				} else {
+					tft.drawBitmap(0, 5, power_cord, 24, 9 , GREEN, BLACK);
 				}
 			} else {
-				tft.drawBitmap(0, 5, power_cord, 24, 9, tft.Color565(max(0, min(255, ((NUM_CELLS*MAX_VOLTS_PER_CELL)-v)*112)), max(0, min(255, (v-NUM_CELLS*MIN_VOLTS_PER_CELL)*112)), 0));
+				// on battery.
+				const unsigned char *symbol = get_battery_symbol(v_c3+0.35, false, &red, &green, &percent);
+				uint16_t color = tft.Color565(red, green, 0);
+				tft.drawBitmap(0, 5, symbol, 24, 9 , color, BLACK);
+				tft.setTextColor(WHITE,BLACK);
+				tft.print("BAT: ");
+				tft.print(v_c3+0.35, 1);
+				tft.print("V ");
+				tft.print(percent);
+				tft.print("% ");
 			}
 		} else if (power_source == POWER_LIPO || power_source == POWER_CHARGING) {
 			float volt[] = {v_c1, v_c2-v_c1, v_c3-v_c2};
@@ -871,7 +926,7 @@ void display(void) {
 void compute(void) {
 	static int16_t rising_protection_milestone_temperature = 0;
 	static int16_t rising_protection_timeout = WATCH_TEMP_PERIOD;
-	static int16_t rising_rebound_timeout = WATCH_TEMP_PERIOD;
+	static int16_t rising_rebound_timeout = WATCH_TEMP_REBOUND;
 	static bool rising_protection_target_reached = false;
 
 #ifndef USE_TFT_RESET
@@ -900,6 +955,13 @@ void compute(void) {
 			rising_protection_milestone_temperature = target_t;
 		}
 
+		// if target_t has been changed, timeouts needs to be reset.
+		if(old_target_t != target_t) {
+		  rising_protection_timeout = WATCH_TEMP_PERIOD ;
+			rising_rebound_timeout = WATCH_TEMP_REBOUND;
+			old_target_t = target_t;
+		}
+
 		// ensure that the temperature is actually rising when it should.
 		if(target_t - cur_t > WATCH_TEMP_DEACTIVATE ) {
 			// temperature is lower than setpoint by WATCH_TEMP_DEACTIVATE °C.
@@ -922,9 +984,11 @@ void compute(void) {
 				}
 			}
 		} else {
-			// we are near the target, time to disarm the protection..
+			// we are near the target, time to disarm the protection and rearm the rebound timer.
 			rising_protection_timeout = WATCH_TEMP_PERIOD;
+			rising_rebound_timeout = WATCH_TEMP_REBOUND;
 			rising_protection_target_reached = true;
+			rising_protection_milestone_temperature = target_t - WATCH_TEMP_DEACTIVATE; // in case temperature has been lowered, follow the target.
 		}
 
 		if(0 == rising_protection_timeout) {
@@ -948,10 +1012,19 @@ void compute(void) {
 	last_measured = cur_t;
 
 	heaterPID.Compute();
-	if (error != NO_ERROR || off)
+
+	// Power limitation.
+	// Tips are rated for 40W, do not exceed that.
+	// note t-hat we have inherently only 50% PWM, as we have it on 10ms and then wait with pwm off for another 10ms.
+	// Formula: P = 0.5 * ( U^2 / ( R )) * (pwm)
+	float pwm_max = 2 * PMAX / ((v*v) / 2.4);
+	if (pwm_max > pid_val) pwm_max = pid_val;
+
+	if (error != NO_ERROR || off) {
 		pwm = 0;
-	else
-		pwm = min(255,pid_val*255);
+	} else {
+		pwm = min(255, pwm_max * 255);
+	}
 	analogWrite(HEATER_PWM, pwm);
 }
 
