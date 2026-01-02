@@ -23,16 +23,24 @@
 #define TEMP_UNDER_THRESHOLD  80 // x (TIME_COMPUTE_IN_MS + DELAY_BEFORE_MEASURE)
 #define THRES_MAX_DECEED       2 //max times the threshold temperature may be undercut by the current temperature
 
-#define WATCH_TEMP_PERIOD     (750/20) // Time allowed (in meas cycles ~20ms) to raise temperature
+#define WATCH_TEMP_PERIOD     (1500/20) // Time allowed (in meas cycles ~20ms) to raise temperature
 #define WATCH_TEMP_REBOUND   (1000/20) // Time after, when target has been reached previously, the temp may drop without re-arming the protection
-#define WATCH_TEMP_INCREASE   10 // by this degrees.
+#define WATCH_TEMP_INCREASE   5 // by this degrees.
 #define WATCH_TEMP_DEACTIVATE 50 // deacticate the watching when we are this near the target (in °C) -- to avoid that loads
 
-//Temperature in degree to rise at least in given time
-#define TEMP_MIN_RISE         10
-//Time in that the temperature must rise by the set temperature
-#define TEMP_RISE_TIME      1000
 
+// voltage ranges for the voltage display.
+#define NUM_CELLS (4)
+#if (true) // For LiFePO4, set to false. Be sure to read not below
+#define MIN_VOLTS_PER_CELL  (3.0)   // LiIon: Usually discharged until 3.0 V/cell
+#define MAX_VOLTS_PER_CELL (3.6)  // LiIon: Nominal at 3.6V
+#define MAX_CHARGE_PER_CELL (4.2) // When charged, full at 4.2
+#else
+// NOTE: LiFePO4 needs an own BMS! Do not use the LiIon charging circuitry that might be on your Maiskolben! Ignoring this warning can cause your cell to explode and may cause fires!
+#define MIN_VOLTS_PER_CELL  (2.5)   // LiFePo in my case, they can go down to 2.0V, my BMS will lockout at 2.1. The 2.5 are margin.
+#define MAX_VOLTS_PER_CELL  (3.2)  // LiFePo: nominal voltage is 3.2V
+#define MAX_CHARGE_PER_CELL (4.2) // When charged, full at 3.6V
+#endif
 //#define OLD_PWM
 
 //      RX          0
@@ -61,11 +69,11 @@
 #endif
 
 #define kp          0.03
-#define ki          0.00001
+#define ki          0.00025
 #define kd          0.0
 
 #define TIME_COMPUTE_IN_MS          10
-#define TIME_MEASURE_VOLTAGE_IN_MS 200
+#define TIME_MEASURE_VOLTAGE_IN_MS 50
 #define TIME_SW_POLL_IN_MS          10
 #define DELAY_BEFORE_MEASURE        10
 #define DELAY_MAIN_LOOP             10
