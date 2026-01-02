@@ -104,6 +104,22 @@ Unter Umständen müssen vorher folgende Libraries noch über _Sketch_ > _Biblio
 Dafür muss von den entsprechenden Seiten zuvor die ZIP heruntergeladen werden.
 Diese kann dann in dem Dateibrowser, der sich nach obiger Anleitung öffnet, selektiert werden.
 
+#### TFT_ILI9163C
+
+Die Bibliothek muss noch etwas geändert werden, da die TFT konfiguration nicht
+zum Display passt. Diese Einstellungen -- in ~/Arduino/libraries/TFT_ILI9163C/_settings/TFT_ILI9163C_settings.h
+funktionieren bei mir:
+
+// display settings:
+//  #define _TFTWIDTH  		160//the REAL W resolution of the TFT
+//	#define _TFTHEIGHT 		144//the REAL H resolution of the TFT
+//	#define _GRAMWIDTH      160
+//	#define _GRAMHEIGH      144
+//	#define _GRAMSIZE		_GRAMWIDTH * _GRAMHEIGH//*see note 1
+//	#define __COLORSPC		1// 1:GBR - 0:RGB
+//	#define __GAMMASET1		//uncomment for another gamma
+//	#define __OFFSET		0
+
 ### Changelog
 
 * 3.1

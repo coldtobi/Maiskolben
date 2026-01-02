@@ -85,13 +85,13 @@ TFT_ILI9163C tft = TFT_ILI9163C(TFT_CS,  TFT_DC);
 
 #define	BLACK   COLOR(0,0,0)
 #define	BLUE    COLOR(0,0,255)
-#define	RED     COLOR(255,20,20)
+#define	RED     COLOR(255,31,0)
 #define	GREEN   COLOR(0, 255, 0)
 #define CYAN    COLOR(0, 255, 255)
 #define MAGENTA COLOR(255, 0, 255)
 #define YELLOW  COLOR(255, 255, 0)
 #define WHITE   COLOR(255,255,255)
-#define GRAY    COLOR(144,148,140)
+#define GRAY    COLOR(144,148,148)
 
 PID heaterPID(&cur_td, &pid_val, &set_td, kp, ki, kd, DIRECT);
 
