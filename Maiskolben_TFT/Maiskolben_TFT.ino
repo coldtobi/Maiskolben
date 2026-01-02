@@ -342,10 +342,10 @@ void optionMenu(void) {
 		char *title;
 		enum optiontype type;
 
-		uint8_t min_or_bit;  // bitmask to be orded / deleted on option toggle or min value for 8-bit value
-		uint8_t max;         // max value for 8-bit-value
-		uint8_t stepsize;    // step size for +/- for 8-bit-value
-		uint8_t *target;     // target variable.
+		uint16_t min_or_bit;  // bitmask to be orded / deleted on option toggle or min value for 8-bit value
+		uint16_t max;         // max value for 8-bit-value
+		uint16_t stepsize;    // step size for +/- for 8-bit-value
+		void *target;     // target variable.
 	} optionslist[] = {
 		//  title			type            	min		max		step	target
 		//										mask
@@ -363,10 +363,10 @@ void optionMenu(void) {
 	// sanitize 8-bit values
 	for (int i = 0; i < num_options; i++) {
 		if (optionslist[i].type != OPT_8BIT_VALUE) continue;
-		uint8_t value = *(optionslist[i].target);
+		uint8_t value = *(uint8_t*)(optionslist[i].target);
 		if (value < optionslist[i].min_or_bit) value = optionslist[i].min_or_bit;
 		if (value > optionslist[i].max) value = optionslist[i].max;
-		*(optionslist[i].target) = value;
+		*(uint8_t*)(optionslist[i].target) = value;
 	}
 
 	const char *onoffexit = "ON  OFF EXIT";
@@ -391,7 +391,7 @@ void optionMenu(void) {
 				uint16_t color = GRAY;
 				bool is_enabled = 0;
 				if (optionslist[entry].type == OPT_BIT) {
-					uint8_t value = optionslist[entry].min_or_bit & *(optionslist[entry].target);
+					uint8_t value = optionslist[entry].min_or_bit & *(uint8_t*)(optionslist[entry].target);
 					if (value) color = GREEN;
 					else color = RED;
 				} else if (optionslist[entry].type == OPT_8BIT_VALUE) {
@@ -405,7 +405,7 @@ void optionMenu(void) {
 				printed = 1 + strlen(optionslist[entry].title);
 			
 				if (optionslist[entry].type == OPT_8BIT_VALUE) {
-					uint8_t val = *(optionslist[entry].target);
+					uint8_t val = *(uint8_t*)(optionslist[entry].target);
 					tft.print(" ");
 					if (val < 100) tft.print(" ");
 					if (val < 10) tft.print(" ");
@@ -465,12 +465,12 @@ void optionMenu(void) {
 			enum optiontype type = optionslist[entry].type;
 			switch (type) {
 				case OPT_BIT:
-					*(optionslist[entry].target) |= optionslist[entry].min_or_bit;
+					*(uint8_t*)(optionslist[entry].target) |= optionslist[entry].min_or_bit;
 					break;
 				case OPT_8BIT_VALUE:
-					uint8_t value = *(optionslist[entry].target) + optionslist[entry].stepsize;
+					uint8_t value = *(uint8_t*)(optionslist[entry].target) + optionslist[entry].stepsize;
 					if (value > optionslist[entry].max) value = optionslist[entry].max;
-					*(optionslist[entry].target) = value;
+					*(uint8_t*)(optionslist[entry].target) = value;
 					break;
 			}
 			redraw = true;
@@ -481,14 +481,14 @@ void optionMenu(void) {
 			enum optiontype type = optionslist[entry].type;
 			switch (type) {
 				case OPT_BIT:
-					*(optionslist[entry].target) &= ~(optionslist[entry].min_or_bit);
+					*(uint8_t*)(optionslist[entry].target) &= ~(optionslist[entry].min_or_bit);
 					break;
 				case OPT_8BIT_VALUE:
-					uint8_t value = *(optionslist[entry].target);
+					uint8_t value = *(uint8_t*)(optionslist[entry].target);
 					if (value >= optionslist[entry].stepsize) value -= optionslist[entry].stepsize;
 					else value = 0;
 					if (value < optionslist[entry].min_or_bit) value = optionslist[entry].min_or_bit;
-					*(optionslist[entry].target) = value;
+					*(uint8_t*)(optionslist[entry].target) = value;
 			}
 			redraw = true;
 		}
