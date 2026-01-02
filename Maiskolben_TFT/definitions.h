@@ -1,5 +1,5 @@
 #define VERSION			"3.1"
-#define EE_VERSION      31
+#define EE_VERSION      32
 #define EEPROM_CHECK	42
 
 #define BAR_HEIGHT       4 //Should be no bigger than 5
@@ -29,8 +29,8 @@
 #define WATCH_TEMP_PERIOD     (1500/20) // Time allowed (in measurement cycles) ~20ms) for temperature to raise. (x/20) gives you around x ms.
 #define WATCH_TEMP_INCREASE   5 // temperature must raise by this value (°C)
 // Rebound: When tip is suddenly cooled (e.g cleaning, or soldering), allow this extra time before re-actviating the protection.
-#define WATCH_TEMP_REBOUND   (1000/20) // Time, when target has been reached previously, where the temp may drop without re-arming the protection
-#define WATCH_TEMP_DEACTIVATE 30 // disarm the protection when the current temperature is close to the target temperature by this temperature (°C)
+#define WATCH_TEMP_REBOUND   (2000/20) // Time, when target has been reached previously, where the temp may drop without re-arming the protection
+#define WATCH_TEMP_DEACTIVATE 15 // disarm the protection when the current temperature is close to the target temperature by this temperature (°C)
 
 // voltage ranges for the voltage display.
 #define NUM_CELLS (4)
@@ -92,6 +92,14 @@
 #define EEPROM_REVISION 13
 #define EEPROM_ADCTTG   14
 #define EEPROM_ADCOFF   (EEPROM_ADCTTG + sizeof(float))
+
+// EEPROM Version 32
+#define EEPROM_POWER    20
+#define EEPROM_STBYTEMP 21
+#define EEPROM_STBYTIME 23
+#define EEPROM_MINTEMP  25
+#define EEPROM_MAXTEMP  27
+
 
 #define EEPROM_INSTALL  42
 #define REF_T1          275

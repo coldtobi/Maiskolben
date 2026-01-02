@@ -87,8 +87,8 @@ Um die aktuellste Software auf den Maiskolbe zu übertragen, muss zunächst die 
 In diesem Repository befinden sich zwei Programme, zum einen Maiskolben_LCD für die Hardware-Revision 1.0 und Maiskolben_TFT für Hardware-Revisionen ab 1.5.
 Die .ino Datei kann mit Arduino geöffnet werden.
 Der Serielle-Port muss nach Herstellen einer Verbindung zwischen Maiskolben und PC unter _Werkzeuge_ > _Port_ ausgewählt werden.
-Unter umständen muss zuvor noch der [CH340 Treiber](http://www.wch.cn/download/CH341SER_ZIP.html) für den USB-Seriell-Wandler installiert werden.
-Als _Board_ sollte _Arduino Nano_ mit _Prozessor: ATmega328_ ausgewählt werden.
+Unter Umständen muss zuvor noch der [CH340 Treiber](http://www.wch.cn/download/CH341SER_ZIP.html) für den USB-Seriell-Wandler installiert werden.
+Als _Board_ sollte _Arduino Nano_ mit _Prozessor: ATmega328 (Old Bootloader)_ ausgewählt werden.
 Über _Sketch_ > _Hochladen_ bzw. den Pfeil nach Rechts in der oberen Leiste kann das Programm übertragen werden.
 
 ### Bibliotheken
@@ -103,6 +103,22 @@ Unter Umständen müssen vorher folgende Libraries noch über _Sketch_ > _Biblio
 
 Dafür muss von den entsprechenden Seiten zuvor die ZIP heruntergeladen werden.
 Diese kann dann in dem Dateibrowser, der sich nach obiger Anleitung öffnet, selektiert werden.
+
+#### TFT_ILI9163C
+
+Die Bibliothek muss noch etwas geändert werden, da die TFT konfiguration nicht
+zum Display passt. Diese Einstellungen -- in ~/Arduino/libraries/TFT_ILI9163C/_settings/TFT_ILI9163C_settings.h
+funktionieren bei mir:
+
+// display settings:
+//  #define _TFTWIDTH  		160//the REAL W resolution of the TFT
+//	#define _TFTHEIGHT 		144//the REAL H resolution of the TFT
+//	#define _GRAMWIDTH      160
+//	#define _GRAMHEIGH      144
+//	#define _GRAMSIZE		_GRAMWIDTH * _GRAMHEIGH//*see note 1
+//	#define __COLORSPC		1// 1:GBR - 0:RGB
+//	#define __GAMMASET1		//uncomment for another gamma
+//	#define __OFFSET		0
 
 ### Changelog
 
