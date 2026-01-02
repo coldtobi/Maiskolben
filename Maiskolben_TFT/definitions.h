@@ -8,16 +8,16 @@
  * TIPS ARE SPECIFIED FOR 450 DEGREE MAX
  * If read 1023 on Analog in, the tip is turned off automatically
  */
-#define TEMP_MAX    450
-#define TEMP_MIN    200
-#define TEMP_STBY   150
+#define _TEMP_MAX    450
+#define _TEMP_MIN    200
+#define _TEMP_STBY   150
 #define TEMP_COLD   (adc_offset + 15)
 
 #define SHUTOFF_ACTIVE
 #define BOOTHEAT_ACTIVE
 
-#define STANDBY_TIMEOUT 240 // seconds without any significant temperature drop, if exceeded it will standby
-#define OFF_TIMEOUT     900 // seconds in standby before turning off
+#define _STANDBY_TIMEOUT 240 // seconds without any significant temperature drop, if exceeded it will standby
+#define _OFF_TIMEOUT     900 // seconds in standby before turning off
 
 #define TEMP_RISE             30 //threshold temperature, that must be exceeded delta in given time:
 #define TEMP_UNDER_THRESHOLD  80 // x (TIME_COMPUTE_IN_MS + DELAY_BEFORE_MEASURE)

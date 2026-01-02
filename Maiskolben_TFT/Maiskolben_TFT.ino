@@ -42,7 +42,7 @@ volatile uint8_t pwm, threshold_counter;
 volatile int16_t cur_t, last_measured;
 volatile error_type error = NO_ERROR;
 error_type error_old;
-int16_t stored[3] = {300, 350, 450}, set_t = TEMP_MIN, set_t_old, cur_t_old, target_t;
+int16_t stored[3] = {300, 350, 450}, set_t, set_t_old, cur_t_old, target_t;
 double pid_val, cur_td, set_td;
 uint8_t store_to = 255;
 p_source power_source, power_source_old = NO_INIT;
@@ -65,12 +65,12 @@ float adc_offset = ADC_TO_TEMP_OFFSET;
 float adc_gain = ADC_TO_TEMP_GAIN;
 
 uint8_t maxpower = 40;
-uint16_t temp_standby = TEMP_STBY;
-uint16_t time_standby = STANDBY_TIMEOUT;
-uint16_t time_off = OFF_TIMEOUT;
+uint16_t temp_standby = _TEMP_STBY;
+uint16_t time_standby = _STANDBY_TIMEOUT;
+uint16_t time_off = _OFF_TIMEOUT;
 
-uint16_t temp_min = TEMP_MIN;
-uint16_t temp_max = TEMP_MAX;
+uint16_t temp_min = _TEMP_MIN;
+uint16_t temp_max = _TEMP_MAX;
 
 #define RGB_DISP 0x0
 #define BGR_DISP 0x2
@@ -214,7 +214,7 @@ void setup(void) {
 		EEPROM.update(EEPROM_STBYTEMP, temp_standby);
 		EEPROM.update(EEPROM_STBYTIME, time_standby);
 		EEPROM.update(EEPROM_MINTEMP, temp_min);
-		EEPROM.update(EEPROM_MAXTEMP, time_max);
+		EEPROM.update(EEPROM_MAXTEMP, temp_max);
 				
 		EEPROM.update(EEPROM_VERSION, EE_VERSION);
 		EEPROM.update(EEPROM_INSTALL, EEPROM_CHECK);
@@ -235,6 +235,10 @@ void setup(void) {
 	bootheat = options & 2;
 	fahrenheit = options & 4;
 	maxpower = EEPROM.read(EEPROM_POWER);
+	temp_standby = EEPROM.read(EEPROM_STBYTEMP);
+	time_standby = EEPROM.read(EEPROM_STBYTIME);
+	set_t = temp_min = EEPROM.read(EEPROM_MINTEMP);
+	temp_max = EEPROM.read(EEPROM_MAXTEMP);
 
 	if (force_menu) optionMenu();
 	else {
@@ -517,7 +521,6 @@ void optionMenu(void) {
 					*(uint16_t*)(optionslist[entry].target) = value;
 					break;
 				  }
-			
 			}
 			redraw = true;
 		}
@@ -735,8 +738,8 @@ void timer_sw_poll(void) {
 		cnt_but_press++;
 		if((cnt_but_press >= 100) || sw_changed) {
 			setStandby(false);
-			if(sw_up && set_t < TEMP_MAX) set_t++;
-			else if (sw_down && set_t > TEMP_MIN) set_t--;
+			if(sw_up && set_t < temp_max) set_t++;
+			else if (sw_down && set_t > temp_min) set_t--;
 			if(!sw_changed) cnt_but_press = 97;
 			updateEEPROM();
 		}
@@ -854,8 +857,8 @@ void display(void) {
 				printTemp(set_t);
 				tft.write(247);
 				tft.write(fahrenheit?'F':'C');
-				tft.fillTriangle(149, 50, 159, 50, 154, 38, (set_t < TEMP_MAX) ? WHITE : GRAY);
-				tft.fillTriangle(149, 77, 159, 77, 154, 90, (set_t > TEMP_MIN) ? WHITE : GRAY);
+				tft.fillTriangle(149, 50, 159, 50, 154, 38, (set_t < temp_max) ? WHITE : GRAY);
+				tft.fillTriangle(149, 77, 159, 77, 154, 90, (set_t > temp_min) ? WHITE : GRAY);
 			}
 		}
 		if (!off) {
@@ -863,9 +866,9 @@ void display(void) {
 			if (autopower) {
 				int16_t tout;
 				if (stby || stby_layoff) {
-					tout = min(max(0,(last_on_state + OFF_TIMEOUT - (millis())/1000)), OFF_TIMEOUT);
+					tout = min(max(0,(last_on_state + time_off - (millis())/1000)), time_off);
 				} else {
-					tout = min(max(0,(last_temperature_drop + STANDBY_TIMEOUT - (millis())/1000)), STANDBY_TIMEOUT);
+					tout = min(max(0,(last_temperature_drop + time_standby - (millis())/1000)), time_standby);
 				}
 				tft.setTextColor(stby?RED:YELLOW, BLACK);
 				tft.setTextSize(2);
@@ -1001,10 +1004,10 @@ void display(void) {
 				autopower_repeat_under = false; //over the max pwm for at least two times
 			}
 		}
-		if (!off && !stby && millis()/1000 > (last_temperature_drop + STANDBY_TIMEOUT)) {
+		if (!off && !stby && millis()/1000 > (last_temperature_drop + time_standby)) {
 			setStandby(true);
 		}
-		if (!off && (stby || stby_layoff) && millis()/1000 > (last_on_state + OFF_TIMEOUT)) {
+		if (!off && (stby || stby_layoff) && millis()/1000 > (last_on_state + time_off)) {
 			setOff(true);
 		}
 	}
@@ -1025,7 +1028,7 @@ void compute(void) {
 		}
 	} else {
 		if (stby_layoff || stby) {
-			target_t = TEMP_STBY;
+			target_t = temp_standby;
 		} else {
 			target_t = set_t;
 		}
@@ -1138,7 +1141,7 @@ void loop(void) {
 				if (Serial.available() >= 3) {
 					t = serialReadTemp();
 					//Serial.println(t);
-					if (t <= TEMP_MAX && t >= TEMP_MIN) {
+					if (t <= temp_max && t >= temp_min) {
 						set_t = t;
 						updateEEPROM();
 					}
@@ -1150,7 +1153,7 @@ void loop(void) {
 					uint8_t slot = Serial.read()-'1';
 					if (slot < 3) {
 						t = serialReadTemp();
-						if (t <= TEMP_MAX && t >= TEMP_MIN) {
+						if (t <= temp_max && t >= temp_min) {
 							stored[slot] = t;
 							updateEEPROM();
 						}
