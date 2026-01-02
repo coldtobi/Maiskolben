@@ -955,6 +955,13 @@ void compute(void) {
 			rising_protection_milestone_temperature = target_t;
 		}
 
+		// if target_t has been changed, timeouts needs to be reset.
+		if(old_target_t != target_t) {
+		  rising_protection_timeout = WATCH_TEMP_PERIOD ;
+			rising_rebound_timeout = WATCH_TEMP_REBOUND;
+			old_target_t = target_t;
+		}
+
 		// ensure that the temperature is actually rising when it should.
 		if(target_t - cur_t > WATCH_TEMP_DEACTIVATE ) {
 			// temperature is lower than setpoint by WATCH_TEMP_DEACTIVATE °C.
@@ -981,6 +988,7 @@ void compute(void) {
 			rising_protection_timeout = WATCH_TEMP_PERIOD;
 			rising_rebound_timeout = WATCH_TEMP_REBOUND;
 			rising_protection_target_reached = true;
+			rising_protection_milestone_temperature = target_t - WATCH_TEMP_DEACTIVATE; // in case temperature has been lowered, follow the target.
 		}
 
 		if(0 == rising_protection_timeout) {
