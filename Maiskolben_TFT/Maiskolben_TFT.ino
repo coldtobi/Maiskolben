@@ -65,6 +65,12 @@ float adc_offset = ADC_TO_TEMP_OFFSET;
 float adc_gain = ADC_TO_TEMP_GAIN;
 
 uint8_t maxpower = 40;
+uint16_t temp_standby = TEMP_STBY;
+uint16_t time_standby = STANDBY_TIMEOUT;
+uint16_t time_off = OFF_TIMEOUT;
+
+uint16_t temp_min = TEMP_MIN;
+uint16_t temp_max = TEMP_MAX;
 
 #define RGB_DISP 0x0
 #define BGR_DISP 0x2
@@ -204,6 +210,12 @@ void setup(void) {
 		}
 		EEPROM.update(EEPROM_OPTIONS,  (fahrenheit << 2) | (bootheat << 1) | autopower);
 		EEPROM.update(EEPROM_POWER, maxpower);
+
+		EEPROM.update(EEPROM_STBYTEMP, temp_standby);
+		EEPROM.update(EEPROM_STBYTIME, time_standby);
+		EEPROM.update(EEPROM_MINTEMP, temp_min);
+		EEPROM.update(EEPROM_MAXTEMP, time_max);
+				
 		EEPROM.update(EEPROM_VERSION, EE_VERSION);
 		EEPROM.update(EEPROM_INSTALL, EEPROM_CHECK);
 		EEPROM.put(EEPROM_ADCTTG, adc_gain);
@@ -335,6 +347,7 @@ void optionMenu(void) {
 		OPT_BIT,
 		OPT_BIT_DISABLED,
 		OPT_8BIT_VALUE,
+		OPT_16BIT_VALUE,
 	};
 
 	// defined options.
@@ -352,13 +365,19 @@ void optionMenu(void) {
 		{ "Autoshutdown",	OPT_BIT_SHUTOFF,	1,		0,		0,		(uint8_t *)&autopower },
 		{ "Heat on boot",	OPT_BIT_BHEAT,		1,		0,		0,		(uint8_t *)&bootheat },
 		{ "Fahrenheit",		OPT_BIT,					1, 		0, 		0, 		(uint8_t *)&fahrenheit },
-		{ "Pmax", 				OPT_8BIT_VALUE, 	10, 	110, 	5, 		&maxpower }
+		{ "P max  ",				OPT_8BIT_VALUE, 10, 	110, 	5, 		&maxpower },
+		{ "T stby", 			OPT_16BIT_VALUE, 	100, 	250, 	10,		&temp_standby },
+		{ "t stby", 			OPT_16BIT_VALUE, 	30, 	600,  10,		&time_standby },
+		{ "t off ",				OPT_16BIT_VALUE, 	30, 	600, 10,		&time_off },
+		{ "T min ", 			OPT_16BIT_VALUE, 	100, 	450,	10,		&temp_min },
+		{ "T max ", 			OPT_16BIT_VALUE, 	100, 	450,	10,		&temp_max },
+			
 	};
 
 	// how many chars do fit into a line?
 	constexpr uint8_t chars_per_line = 13;    // number of chars per line.
 	constexpr uint8_t displayed_options = 3;  // number of option-lines on display
-	constexpr uint8_t num_options = 4;        // total number of options in optionlist[]
+	constexpr uint8_t num_options = 9;        // total number of options in optionlist[]
 
 	// sanitize 8-bit values
 	for (int i = 0; i < num_options; i++) {
@@ -367,6 +386,15 @@ void optionMenu(void) {
 		if (value < optionslist[i].min_or_bit) value = optionslist[i].min_or_bit;
 		if (value > optionslist[i].max) value = optionslist[i].max;
 		*(uint8_t*)(optionslist[i].target) = value;
+	}
+
+	// sanitize 16-bit values
+	for (int i = 0; i < num_options; i++) {
+		if (optionslist[i].type != OPT_16BIT_VALUE) continue;
+		uint16_t value = *(uint16_t*)(optionslist[i].target);
+		if (value < optionslist[i].min_or_bit) value = optionslist[i].min_or_bit;
+		if (value > optionslist[i].max) value = optionslist[i].max;
+		*(uint16_t*)(optionslist[i].target) = value;
 	}
 
 	const char *onoffexit = "ON  OFF EXIT";
@@ -394,7 +422,8 @@ void optionMenu(void) {
 					uint8_t value = optionslist[entry].min_or_bit & *(uint8_t*)(optionslist[entry].target);
 					if (value) color = GREEN;
 					else color = RED;
-				} else if (optionslist[entry].type == OPT_8BIT_VALUE) {
+				} else if (optionslist[entry].type == OPT_8BIT_VALUE ||
+				           optionslist[entry].type == OPT_16BIT_VALUE) {
 					color = GREEN;
 				}
 				if (opt == i) tft.setTextColor(WHITE);
@@ -410,7 +439,15 @@ void optionMenu(void) {
 					if (val < 100) tft.print(" ");
 					if (val < 10) tft.print(" ");
 					tft.print(val);
-					printed += 3;
+					printed += 4;
+				} else if (optionslist[entry].type == OPT_16BIT_VALUE) {
+					uint16_t val = *(uint16_t*)(optionslist[entry].target);
+					tft.print(" ");
+					if (val < 1000) tft.print(" ");
+					if (val < 100) tft.print(" ");
+					if (val < 10) tft.print(" ");
+					tft.print(val);
+					printed += 5;
 				}
 				for (uint8_t j = printed; j < chars_per_line; j++) tft.print(" ");
 				tft.println("");
@@ -419,7 +456,8 @@ void optionMenu(void) {
 			// Render operationstext
 			tft.setTextColor(WHITE, BLACK);
 			tft.setCursor(10, 112);
-			if (optionslist[opt + first_option].type == OPT_8BIT_VALUE) {
+			if (optionslist[opt + first_option].type == OPT_8BIT_VALUE ||
+			    optionslist[opt + first_option].type == OPT_16BIT_VALUE) {
 				tft.print(plusminusexit);
 			} else {
 				tft.print(onoffexit);
@@ -467,11 +505,19 @@ void optionMenu(void) {
 				case OPT_BIT:
 					*(uint8_t*)(optionslist[entry].target) |= optionslist[entry].min_or_bit;
 					break;
-				case OPT_8BIT_VALUE:
+				case OPT_8BIT_VALUE: {
 					uint8_t value = *(uint8_t*)(optionslist[entry].target) + optionslist[entry].stepsize;
 					if (value > optionslist[entry].max) value = optionslist[entry].max;
 					*(uint8_t*)(optionslist[entry].target) = value;
 					break;
+					}
+				case OPT_16BIT_VALUE: {
+					uint16_t value = *(uint16_t*)(optionslist[entry].target) + optionslist[entry].stepsize;
+					if (value > optionslist[entry].max) value = optionslist[entry].max;
+					*(uint16_t*)(optionslist[entry].target) = value;
+					break;
+				  }
+			
 			}
 			redraw = true;
 		}
@@ -483,12 +529,20 @@ void optionMenu(void) {
 				case OPT_BIT:
 					*(uint8_t*)(optionslist[entry].target) &= ~(optionslist[entry].min_or_bit);
 					break;
-				case OPT_8BIT_VALUE:
+				case OPT_8BIT_VALUE: {
 					uint8_t value = *(uint8_t*)(optionslist[entry].target);
 					if (value >= optionslist[entry].stepsize) value -= optionslist[entry].stepsize;
 					else value = 0;
 					if (value < optionslist[entry].min_or_bit) value = optionslist[entry].min_or_bit;
 					*(uint8_t*)(optionslist[entry].target) = value;
+					break; }
+				case OPT_16BIT_VALUE: {
+					uint16_t value = *(uint16_t*)(optionslist[entry].target);
+					if (value >= optionslist[entry].stepsize) value -= optionslist[entry].stepsize;
+					else value = 0;
+					if (value < optionslist[entry].min_or_bit) value = optionslist[entry].min_or_bit;
+					*(uint16_t*)(optionslist[entry].target) = value;
+					break; }
 			}
 			redraw = true;
 		}
@@ -498,6 +552,10 @@ void optionMenu(void) {
 
 	EEPROM.update(EEPROM_OPTIONS, (fahrenheit << 2) | (bootheat << 1) | autopower);
 	EEPROM.update(EEPROM_POWER, maxpower);
+	EEPROM.update(EEPROM_STBYTEMP, temp_standby);
+	EEPROM.update(EEPROM_STBYTIME, time_standby);
+	EEPROM.update(EEPROM_MINTEMP, temp_min);
+	EEPROM.update(EEPROM_MAXTEMP, temp_max);
 	updateRevision();
 	EEPROM.update(EEPROM_VERSION, EE_VERSION);
 	if (EEPROM.read(EEPROM_VERSION) < 30) {
