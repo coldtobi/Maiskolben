@@ -64,6 +64,8 @@ uint16_t charge = 0;
 float adc_offset = ADC_TO_TEMP_OFFSET;
 float adc_gain = ADC_TO_TEMP_GAIN;
 
+uint8_t maxpower = 40;
+
 #define RGB_DISP 0x0
 #define BGR_DISP 0x2
 
@@ -201,6 +203,7 @@ void setup(void) {
 			delay(50);
 		}
 		EEPROM.update(EEPROM_OPTIONS,  (fahrenheit << 2) | (bootheat << 1) | autopower);
+		EEPROM.update(EEPROM_POWER, maxpower);
 		EEPROM.update(EEPROM_VERSION, EE_VERSION);
 		EEPROM.update(EEPROM_INSTALL, EEPROM_CHECK);
 		EEPROM.put(EEPROM_ADCTTG, adc_gain);
@@ -219,6 +222,8 @@ void setup(void) {
 	autopower = options & 1;
 	bootheat = options & 2;
 	fahrenheit = options & 4;
+	maxpower = EEPROM.read(EEPROM_POWER);
+
 	if (force_menu) optionMenu();
 	else {
 		updateRevision();
@@ -346,7 +351,8 @@ void optionMenu(void) {
 		//										mask
 		{ "Autoshutdown",	OPT_BIT_SHUTOFF,	1,		0,		0,		(uint8_t *)&autopower },
 		{ "Heat on boot",	OPT_BIT_BHEAT,		1,		0,		0,		(uint8_t *)&bootheat },
-		{ "Fahrenheit",		OPT_BIT,			1, 		0, 		0, 		(uint8_t *)&fahrenheit },
+		{ "Fahrenheit",		OPT_BIT,					1, 		0, 		0, 		(uint8_t *)&fahrenheit },
+		{ "Pmax", 				OPT_8BIT_VALUE, 	10, 	110, 	5, 		&maxpower }
 	};
 
 	// how many chars do fit into a line?
@@ -491,6 +497,7 @@ void optionMenu(void) {
 	}
 
 	EEPROM.update(EEPROM_OPTIONS, (fahrenheit << 2) | (bootheat << 1) | autopower);
+	EEPROM.update(EEPROM_POWER, maxpower);
 	updateRevision();
 	EEPROM.update(EEPROM_VERSION, EE_VERSION);
 	if (EEPROM.read(EEPROM_VERSION) < 30) {
@@ -983,10 +990,19 @@ void compute(void) {
 	last_measured = cur_t;
 
 	heaterPID.Compute();
-	if (error != NO_ERROR || off)
+
+	// Power limitation.
+	// Tips are rated for 40W, do not exceed that.
+	// note t-hat we have inherently only 50% PWM, as we have it on 10ms and then wait with pwm off for another 10ms.
+	// Formula: P = 0.5 * ( U^2 / ( R )) * (pwm)
+	float pwm_max = 2 * maxpower / ((v * v) / 2.4);
+	if (pwm_max > pid_val) pwm_max = pid_val;
+
+	if (error != NO_ERROR || off) {
 		pwm = 0;
-	else
-		pwm = min(255,pid_val*255);
+	} else {
+		pwm = min(255, pwm_max * 255);
+	}
 	analogWrite(HEATER_PWM, pwm);
 }
 

@@ -1,5 +1,5 @@
 #define VERSION			"3.1"
-#define EE_VERSION      31
+#define EE_VERSION      32
 #define EEPROM_CHECK	42
 
 #define BAR_HEIGHT       4 //Should be no bigger than 5
@@ -76,6 +76,14 @@
 #define EEPROM_REVISION 13
 #define EEPROM_ADCTTG   14
 #define EEPROM_ADCOFF   (EEPROM_ADCTTG + sizeof(float))
+
+// EEPROM Version 32
+#define EEPROM_POWER    20
+#define EEPROM_STBYTEMP 21
+#define EEPROM_STBYTIME 23
+#define EEPROM_MINTEMP  25
+#define EEPROM_MAXTEMP  27
+
 
 #define EEPROM_INSTALL  42
 #define REF_T1          275
