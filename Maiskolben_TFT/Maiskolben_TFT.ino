@@ -641,15 +641,20 @@ float toFahrenheit(float t) {
 int getTemperature(void) {
 	analogRead(TEMP_SENSE);//Switch ADC MUX
 	uint16_t adc = median(TEMP_SENSE);
+	static uint8_t no_tip_debounce = SLIPOUT_DEBOUNCE;
 #ifdef TEST_ADC
 	Serial.println(adc);
 #endif
 	if (adc >= 900) { //Illegal value, tip not plugged in - would be around 560deg
 		analogWrite(HEATER_PWM, 0);
-		if (!off)
-			setError(NO_TIP);
-		return 999;
+		if(no_tip_debounce) no_tip_debounce--;
+		if (0==no_tip_debounce) {
+			if(!off) setError(NO_TIP);
+			return 999;
+		}
+		return 998;
 	} else {
+		no_tip_debounce = SLIPOUT_DEBOUNCE;
 		analogWrite(HEATER_PWM, pwm); //switch heater back to last value
 	}
 	//return round(adc < 210 ? (((float)adc) * 0.530805 + 38.9298) : (((float)adc) * 0.415375 + 64.6123)); //old conversion
@@ -865,7 +870,7 @@ void display(void) {
 			tft.setTextColor(YELLOW, BLACK);
 			tft.setCursor(36,26);
 			tft.setTextSize(3);
-			tft.print(F(" ERROR"));
+			tft.print(F("ERROR "));
 
 			tft.setTextSize(1);
 			tft.setCursor(0,96);
@@ -974,7 +979,10 @@ void display(void) {
 	if (cur_t_old != temperature || force_redraw) {
 		tft.setCursor(36,52);
 		tft.setTextSize(3);
-		if (temperature == 999) {
+		if (temperature == 998) {
+			tft.setTextColor(YELLOW, BLACK);
+			tft.print(F(" ???  "));
+		} else if (temperature == 999) {
 			tft.setTextColor(RED, BLACK);
 			tft.print(F(" ERR  "));
 			tft.setCursor(45,78);
@@ -1155,9 +1163,12 @@ void compute(void) {
 		} else {
 			target_t = set_t;
 		}
-		if (cur_t-last_measured <= -30 && last_measured != 999) {
-			setError(EXCESSIVE_FALL); //decrease of more than 30 degree is uncommon, short of ring and gnd is possible.
-		}
+		
+	//	if (cur_t-last_measured <= -30 && last_measured != 999) {
+	//		setError(EXCESSIVE_FALL); //decrease of more than 30 degree is uncommon, short of ring and gnd is possible.
+	//	} else {
+	//		slipout_debounce=SLIPOUT_DEBOUNCE;
+	//	}
 
 		// if target_t has been lowered, make sure that we also lower that milestone temperature
 		if (target_t < rising_protection_milestone_temperature) {

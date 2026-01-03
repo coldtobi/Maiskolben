@@ -32,6 +32,8 @@
 #define WATCH_TEMP_REBOUND   (2000/20) // Time, when target has been reached previously, where the temp may drop without re-arming the protection
 #define WATCH_TEMP_DEACTIVATE 15 // disarm the protection when the current temperature is close to the target temperature by this temperature (°C)
 
+#define SLIPOUT_DEBOUNCE		  (1000/20) 	// Debounce slipout detection "excessive temperature fall"
+
 // voltage ranges for the voltage display.
 #define NUM_CELLS (4)
 #if (false) // For LiFePO4, set to false. Be sure to read not below
