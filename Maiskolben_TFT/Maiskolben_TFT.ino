@@ -858,10 +858,7 @@ void display(void) {
 	if (force_redraw) tft.fillScreen(BLACK);
 	int16_t temperature = cur_t; //buffer volatile value
 	boolean yell = stby || (stby_layoff && blink);
-	tft.drawCircle(20,63,8, off?RED:yell?YELLOW:GREEN);
-	tft.drawCircle(20,63,7,off?RED:yell?YELLOW:GREEN);
-	tft.fillRect(19,55,3,3,BLACK);
-	tft.drawFastVLine(20,53,10, off?RED:yell?YELLOW:GREEN);
+
 	if (error != NO_ERROR) {
 		if (error != error_old || force_redraw) {
 			error_old = error;
@@ -930,6 +927,8 @@ void display(void) {
 				tft.fillTriangle(149, 77, 159, 77, 154, 90, (set_t > temp_min) ? WHITE : GRAY);
 			}
 		}
+
+		static bool was_off = true;
 		if (!off) {
 #ifdef SHUTOFF_ACTIVE
 			if (autopower) {
@@ -938,6 +937,11 @@ void display(void) {
 					tout = min(max(0,(last_on_state + time_off - (millis())/1000)), time_off);
 				} else {
 					tout = min(max(0,(last_temperature_drop + time_standby - (millis())/1000)), time_standby);
+				}
+				if(was_off) {
+					// Transition off -> on --> OFF löschen
+					tft.fillRect(45,78,70,17,BLACK);
+					was_off = false;
 				}
 				tft.setTextColor(stby?RED:YELLOW, BLACK);
 				tft.setTextSize(2);
@@ -950,7 +954,10 @@ void display(void) {
 			}
 #endif
 		} else if (temperature != 999) {
-			tft.fillRect(46, 78, 60, 20, BLACK);
+			tft.setCursor(45,78);
+			tft.setTextSize(2);
+			tft.print(" OFF  ");
+			was_off = true;
 		}
 	}
 	if (cur_t_old != temperature || force_redraw) {
@@ -959,13 +966,10 @@ void display(void) {
 		if (temperature == 999) {
 			tft.setTextColor(RED, BLACK);
 			tft.print(F(" ERR  "));
-			tft.setCursor(44,76);
+			tft.setCursor(45,78);
 			tft.setTextSize(2);
 			tft.print(F("NO TIP"));
 		} else {
-			if (cur_t_old == 999) {
-				tft.fillRect(44,76,72,16,BLACK);
-			}
 			tft.setTextColor(off ? temperature < TEMP_COLD ? CYAN : RED : tft.Color565(min(10,abs(temperature-target_t))*25, 250 - min(10,max(0,(abs(temperature-target_t)-10)))*25, 0), BLACK);
 			if (temperature < TEMP_COLD) {
 				tft.print(F("COLD  "));
