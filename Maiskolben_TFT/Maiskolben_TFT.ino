@@ -42,7 +42,7 @@ volatile uint8_t pwm, threshold_counter;
 volatile int16_t cur_t, last_measured;
 volatile error_type error = NO_ERROR;
 error_type error_old;
-int16_t stored[3] = {300, 350, 450}, set_t, set_t_old, cur_t_old, target_t;
+int16_t stored[3] = {300, 350, 450}, set_t = _TEMP_MIN, set_t_old, cur_t_old, target_t, old_target_t;
 double pid_val, cur_td, set_td;
 uint8_t store_to = 255;
 p_source power_source, power_source_old = NO_INIT;
@@ -210,11 +210,10 @@ void setup(void) {
 		}
 		EEPROM.update(EEPROM_OPTIONS,  (fahrenheit << 2) | (bootheat << 1) | autopower);
 		EEPROM.update(EEPROM_POWER, maxpower);
-
-		EEPROM.update(EEPROM_STBYTEMP, temp_standby);
-		EEPROM.update(EEPROM_STBYTIME, time_standby);
-		EEPROM.update(EEPROM_MINTEMP, temp_min);
-		EEPROM.update(EEPROM_MAXTEMP, temp_max);
+		EEPROM.put(EEPROM_STBYTEMP, temp_standby);
+		EEPROM.put(EEPROM_STBYTIME, time_standby);
+		EEPROM.put(EEPROM_MINTEMP, temp_min);
+		EEPROM.put(EEPROM_MAXTEMP, temp_max);
 				
 		EEPROM.update(EEPROM_VERSION, EE_VERSION);
 		EEPROM.update(EEPROM_INSTALL, EEPROM_CHECK);
@@ -235,10 +234,14 @@ void setup(void) {
 	bootheat = options & 2;
 	fahrenheit = options & 4;
 	maxpower = EEPROM.read(EEPROM_POWER);
-	temp_standby = EEPROM.read(EEPROM_STBYTEMP);
-	time_standby = EEPROM.read(EEPROM_STBYTIME);
-	set_t = temp_min = EEPROM.read(EEPROM_MINTEMP);
-	temp_max = EEPROM.read(EEPROM_MAXTEMP);
+	EEPROM.get(EEPROM_STBYTEMP, temp_standby);
+	EEPROM.get(EEPROM_STBYTIME, time_standby);
+	EEPROM.get(EEPROM_MINTEMP, temp_min);
+	EEPROM.get(EEPROM_MAXTEMP, temp_max);
+
+	if(temp_max < temp_min ) temp_max = temp_min;
+
+	set_t = temp_min;
 
 	if (force_menu) optionMenu();
 	else {
@@ -356,26 +359,25 @@ void optionMenu(void) {
 
 	// defined options.
 	struct optionslist {
-		char *title;
-		enum optiontype type;
+		const char *title;
+		const enum optiontype type;
 
-		uint16_t min_or_bit;  // bitmask to be orded / deleted on option toggle or min value for 8-bit value
-		uint16_t max;         // max value for 8-bit-value
-		uint16_t stepsize;    // step size for +/- for 8-bit-value
-		void *target;     // target variable.
+		const uint16_t min_or_bit;  // bitmask to be orded / deleted on option toggle or min value for 8-bit value
+		const uint16_t max;         // max value for 8-bit-value
+		const uint16_t stepsize;    // step size for +/- for 8-bit-value
+		const void *target;     // target variable.
 	} optionslist[] = {
 		//  title			type            	min		max		step	target
 		//										mask
-		{ "Autoshutdown",	OPT_BIT_SHUTOFF,	1,		0,		0,		(uint8_t *)&autopower },
-		{ "Heat on boot",	OPT_BIT_BHEAT,		1,		0,		0,		(uint8_t *)&bootheat },
-		{ "Fahrenheit",		OPT_BIT,					1, 		0, 		0, 		(uint8_t *)&fahrenheit },
+		{ "Autoshutdown",	OPT_BIT_SHUTOFF,	1,		0,		 0,		&autopower },
+		{ "Heat on boot",	OPT_BIT_BHEAT,		1,		0,		 0,		&bootheat },
+		{ "Fahrenheit",		OPT_BIT,					1, 		0, 		 0,		&fahrenheit },
 		{ "P max  ",				OPT_8BIT_VALUE, 10, 	110, 	5, 		&maxpower },
-		{ "T stby", 			OPT_16BIT_VALUE, 	100, 	250, 	10,		&temp_standby },
-		{ "t stby", 			OPT_16BIT_VALUE, 	30, 	600,  10,		&time_standby },
-		{ "t off ",				OPT_16BIT_VALUE, 	30, 	600, 10,		&time_off },
-		{ "T min ", 			OPT_16BIT_VALUE, 	100, 	450,	10,		&temp_min },
-		{ "T max ", 			OPT_16BIT_VALUE, 	100, 	450,	10,		&temp_max },
-			
+		{ "T stby", 			OPT_16BIT_VALUE, 	100, 	200, 	 5,		&temp_standby },
+		{ "t stby", 			OPT_16BIT_VALUE, 	30, 	9000, 30,		&time_standby },
+		{ "t off ",				OPT_16BIT_VALUE, 	30, 	9000, 30,		&time_off },
+		{ "T min ", 			OPT_16BIT_VALUE, 	100, 	450,	 5,		&temp_min },
+		{ "T max ", 			OPT_16BIT_VALUE, 	100, 	450,	 5,		&temp_max },
 	};
 
 	// how many chars do fit into a line?
@@ -555,10 +557,10 @@ void optionMenu(void) {
 
 	EEPROM.update(EEPROM_OPTIONS, (fahrenheit << 2) | (bootheat << 1) | autopower);
 	EEPROM.update(EEPROM_POWER, maxpower);
-	EEPROM.update(EEPROM_STBYTEMP, temp_standby);
-	EEPROM.update(EEPROM_STBYTIME, time_standby);
-	EEPROM.update(EEPROM_MINTEMP, temp_min);
-	EEPROM.update(EEPROM_MAXTEMP, temp_max);
+	EEPROM.put(EEPROM_STBYTEMP, temp_standby);
+	EEPROM.put(EEPROM_STBYTIME, time_standby);
+	EEPROM.put(EEPROM_MINTEMP, temp_min);
+	EEPROM.put(EEPROM_MAXTEMP, temp_max);
 	updateRevision();
 	EEPROM.update(EEPROM_VERSION, EE_VERSION);
 	if (EEPROM.read(EEPROM_VERSION) < 30) {
