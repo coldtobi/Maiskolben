@@ -899,6 +899,17 @@ void display(void) {
 			tft.fillRect(0, 96, 160, 16, BLACK);
 			error_old = NO_ERROR;
 		}
+
+#if 0
+		tft.setTextSize(1);
+		tft.setCursor(0,45);
+		tft.setTextColor(YELLOW, BLACK);
+		tft.print("PWM:"); tft.print(pwm); tft.println(" ");
+		//tft.print("i: "); tft.print(heaterPID.outputSum); tft.println(" ");
+		tft.print("pid:"); tft.print(pid_val); tft.println(" ");
+#endif
+
+    // print presets.
 		tft.setTextSize(2);
 		tft.setCursor(15,112);
 		tft.setTextColor(WHITE, BLACK);

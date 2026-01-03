@@ -71,9 +71,9 @@
 #define VIN         A7
 #endif
 
-#define kp          0.035
-#define ki          0.0002
-#define kd          0.0
+#define kp          0.03000
+#define ki          0.00200
+#define kd          0.00100
 
 #define TIME_COMPUTE_IN_MS          10
 #define TIME_MEASURE_VOLTAGE_IN_MS 50
