@@ -101,6 +101,16 @@ TFT_ILI9163C tft = TFT_ILI9163C(TFT_CS,  TFT_DC);
 
 PID heaterPID(&cur_td, &pid_val, &set_td, kp, ki, kd, DIRECT);
 
+void sanitize_value() {
+	if(temp_max < temp_min ) temp_max = temp_min;
+	if(set_t < temp_min) set_t=temp_min;
+	if(set_t > temp_max) set_t=temp_max;
+	for(uint8_t i=0; i<3; i++) {
+		if(stored[i] < temp_min) stored[i]=temp_min;
+	  if(stored[i] > temp_max) stored[i]=temp_max;
+	}
+}
+
 void setup(void) {
 	digitalWrite(HEATER_PWM, LOW);
 	pinMode(HEATER_PWM, OUTPUT);
@@ -223,6 +233,7 @@ void setup(void) {
 		EEPROM.put(EEPROM_STBYTIME, time_standby);
 		EEPROM.put(EEPROM_MINTEMP, temp_min);
 		EEPROM.put(EEPROM_MAXTEMP, temp_max);
+		EEPROM.put(EEPROM_OFFTIME, time_off);
 		EEPROM.update(EEPROM_VERSION, EE_VERSION);
 		EEPROM.update(EEPROM_INSTALL, EEPROM_CHECK);
 		EEPROM.put(EEPROM_ADCTTG, adc_gain);
@@ -246,12 +257,19 @@ void setup(void) {
 	EEPROM.get(EEPROM_STBYTIME, time_standby);
 	EEPROM.get(EEPROM_MINTEMP, temp_min);
 	EEPROM.get(EEPROM_MAXTEMP, temp_max);
+	EEPROM.get(EEPROM_OFFTIME, time_off);
+	stby = EEPROM.read(1);
+	EEPROM.get(EEPROM_PRESET1, stored[0]);
+	EEPROM.get(EEPROM_PRESET2, stored[1]);
+	EEPROM.get(EEPROM_PRESET3, stored[2]);
+	EEPROM.get(EEPROM_SET_T, set_t);
 
-	if(temp_max < temp_min ) temp_max = temp_min;
+	sanitize_value();
 
-	set_t = temp_min;
-
-	if (force_menu) optionMenu();
+	if (force_menu) {
+		optionMenu();
+		sanitize_value();
+	}
 	else {
 		updateRevision();
 #ifdef FAST_BOOT
@@ -301,13 +319,6 @@ void setup(void) {
 	//TCCR2B = (TCCR2B & 0b11111000) | 2
 	//PWM Prescaler = 1    31kHz - no Noise
 	//TCCR2B = (TCCR2B & 0b11111000) | 1;
-	stby = EEPROM.read(1);
-	for (uint8_t i = 0; i < 3; i++) {
-		stored[i] = EEPROM.read(2+i*2) << 8;
-		stored[i] |= EEPROM.read(3+i*2);
-	}
-	set_t = EEPROM.read(EEPROM_SET_T) << 8;
-	set_t |= EEPROM.read(EEPROM_SET_T+1);
 
 	for (uint8_t i = 0; i < 50; i++)
 		measureVoltage(); //measure average 50 times to get realistic results
@@ -577,6 +588,7 @@ void optionMenu(void) {
 	EEPROM.put(EEPROM_STBYTIME, time_standby);
 	EEPROM.put(EEPROM_MINTEMP, temp_min);
 	EEPROM.put(EEPROM_MAXTEMP, temp_max);
+	EEPROM.put(EEPROM_OFFTIME, time_off);
 	updateRevision();
 	EEPROM.update(EEPROM_VERSION, EE_VERSION);
 	if (EEPROM.read(EEPROM_VERSION) < 30) {
@@ -588,12 +600,10 @@ void optionMenu(void) {
 
 void updateEEPROM(void) {
 	EEPROM.update(1, stby);
-	for (uint8_t i = 0; i < 3; i++) {
-		EEPROM.update(2+i*2, stored[i] >> 8);
-		EEPROM.update(3+i*2, stored[i] & 0xFF);
-	}
-	EEPROM.update(8, set_t >> 8);
-	EEPROM.update(9, set_t & 0xFF);
+	EEPROM.put(EEPROM_PRESET1 , stored[0]);
+	EEPROM.put(EEPROM_PRESET2 , stored[1]);
+	EEPROM.put(EEPROM_PRESET3 , stored[2]);
+	EEPROM.put(EEPROM_SET_T   , set_t);
 	EEPROM.update(EEPROM_OPTIONS, (fahrenheit << 2) | (bootheat << 1) | autopower);
 }
 

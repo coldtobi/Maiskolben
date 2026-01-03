@@ -85,6 +85,9 @@
 #define ADC_TO_TEMP_GAIN             0.54 //default value if no calibration is performed
 #define ADC_TO_TEMP_OFFSET          42.8  //default value if no calibration is performed
 
+#define EEPROM_PRESET1   2
+#define EEPROM_PRESET2   4
+#define EEPROM_PRESET3   6
 #define EEPROM_SET_T     8
 #define EEPROM_VERSION  10
 #define EEPROM_DISPLAY  11
@@ -99,6 +102,7 @@
 #define EEPROM_STBYTIME 25
 #define EEPROM_MINTEMP  27
 #define EEPROM_MAXTEMP  29
+#define EEPROM_OFFTIME  31
 
 
 #define EEPROM_INSTALL  42
