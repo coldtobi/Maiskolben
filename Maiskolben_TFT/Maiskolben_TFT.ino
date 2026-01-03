@@ -48,7 +48,7 @@ volatile uint8_t pwm, threshold_counter;
 volatile int16_t cur_t, last_measured;
 volatile error_type error = NO_ERROR;
 error_type error_old;
-int16_t stored[3] = { 300, 350, 450 }, set_t = TEMP_MIN, set_t_old, cur_t_old, target_t, old_target_t;
+int16_t stored[3] = {300, 350, 450}, set_t = _TEMP_MIN, set_t_old, cur_t_old, target_t, old_target_t;
 double pid_val, cur_td, set_td;
 uint8_t store_to = 255;
 p_source power_source, power_source_old = NO_INIT;
@@ -71,6 +71,12 @@ float adc_offset = ADC_TO_TEMP_OFFSET;
 float adc_gain = ADC_TO_TEMP_GAIN;
 
 uint8_t maxpower = 40;
+uint16_t temp_standby = _TEMP_STBY;
+uint16_t time_standby = _STANDBY_TIMEOUT;
+uint16_t time_off = _OFF_TIMEOUT;
+
+uint16_t temp_min = _TEMP_MIN;
+uint16_t temp_max = _TEMP_MAX;
 
 #define RGB_DISP 0x0
 #define BGR_DISP 0x2
@@ -213,6 +219,10 @@ void setup(void) {
 		}
 		EEPROM.update(EEPROM_OPTIONS,  (fahrenheit << 2) | (bootheat << 1) | autopower);
 		EEPROM.update(EEPROM_POWER, maxpower);
+		EEPROM.put(EEPROM_STBYTEMP, temp_standby);
+		EEPROM.put(EEPROM_STBYTIME, time_standby);
+		EEPROM.put(EEPROM_MINTEMP, temp_min);
+		EEPROM.put(EEPROM_MAXTEMP, temp_max);
 		EEPROM.update(EEPROM_VERSION, EE_VERSION);
 		EEPROM.update(EEPROM_INSTALL, EEPROM_CHECK);
 		EEPROM.put(EEPROM_ADCTTG, adc_gain);
@@ -232,6 +242,14 @@ void setup(void) {
 	bootheat = options & 2;
 	fahrenheit = options & 4;
 	maxpower = EEPROM.read(EEPROM_POWER);
+	EEPROM.get(EEPROM_STBYTEMP, temp_standby);
+	EEPROM.get(EEPROM_STBYTIME, time_standby);
+	EEPROM.get(EEPROM_MINTEMP, temp_min);
+	EEPROM.get(EEPROM_MAXTEMP, temp_max);
+
+	if(temp_max < temp_min ) temp_max = temp_min;
+
+	set_t = temp_min;
 
 	if (force_menu) optionMenu();
 	else {
@@ -352,38 +370,53 @@ void optionMenu(void) {
 		OPT_BIT,
 		OPT_BIT_DISABLED,
 		OPT_8BIT_VALUE,
+		OPT_16BIT_VALUE,
 	};
 
 	// defined options.
 	struct optionslist {
-		char *title;
-		enum optiontype type;
+		const char *title;
+		const enum optiontype type;
 
-		uint8_t min_or_bit;  // bitmask to be orded / deleted on option toggle or min value for 8-bit value
-		uint8_t max;         // max value for 8-bit-value
-		uint8_t stepsize;    // step size for +/- for 8-bit-value
-		uint8_t *target;     // target variable.
+		const uint16_t min_or_bit;  // bitmask to be orded / deleted on option toggle or min value for 8-bit value
+		const uint16_t max;         // max value for 8-bit-value
+		const uint16_t stepsize;    // step size for +/- for 8-bit-value
+		const void *target;     // target variable.
 	} optionslist[] = {
 		//  title			type            	min		max		step	target
 		//										mask
-		{ "Autoshutdown",	OPT_BIT_SHUTOFF,	1,		0,		0,		(uint8_t *)&autopower },
-		{ "Heat on boot",	OPT_BIT_BHEAT,		1,		0,		0,		(uint8_t *)&bootheat },
-		{ "Fahrenheit",		OPT_BIT,					1, 		0, 		0, 		(uint8_t *)&fahrenheit },
-		{ "Pmax", 				OPT_8BIT_VALUE, 	10, 	110, 	5, 		&maxpower }
+		{ "Autoshutdown",	OPT_BIT_SHUTOFF,	1,		0,		 0,		&autopower },
+		{ "Heat on boot",	OPT_BIT_BHEAT,		1,		0,		 0,		&bootheat },
+		{ "Fahrenheit",		OPT_BIT,					1, 		0, 		 0,		&fahrenheit },
+		{ "P max  ",				OPT_8BIT_VALUE, 10, 	110, 	5, 		&maxpower },
+		{ "T stby", 			OPT_16BIT_VALUE, 	100, 	200, 	 5,		&temp_standby },
+		{ "t stby", 			OPT_16BIT_VALUE, 	30, 	9000, 30,		&time_standby },
+		{ "t off ",				OPT_16BIT_VALUE, 	30, 	9000, 30,		&time_off },
+		{ "T min ", 			OPT_16BIT_VALUE, 	100, 	450,	 5,		&temp_min },
+		{ "T max ", 			OPT_16BIT_VALUE, 	100, 	450,	 5,		&temp_max },
 	};
 
 	// how many chars do fit into a line?
 	constexpr uint8_t chars_per_line = 13;    // number of chars per line.
 	constexpr uint8_t displayed_options = 3;  // number of option-lines on display
-	constexpr uint8_t num_options = 4;        // total number of options in optionlist[]
+	constexpr uint8_t num_options = 9;        // total number of options in optionlist[]
 
 	// sanitize 8-bit values
 	for (int i = 0; i < num_options; i++) {
 		if (optionslist[i].type != OPT_8BIT_VALUE) continue;
-		uint8_t value = *(optionslist[i].target);
+		uint8_t value = *(uint8_t*)(optionslist[i].target);
 		if (value < optionslist[i].min_or_bit) value = optionslist[i].min_or_bit;
 		if (value > optionslist[i].max) value = optionslist[i].max;
-		*(optionslist[i].target) = value;
+		*(uint8_t*)(optionslist[i].target) = value;
+	}
+
+	// sanitize 16-bit values
+	for (int i = 0; i < num_options; i++) {
+		if (optionslist[i].type != OPT_16BIT_VALUE) continue;
+		uint16_t value = *(uint16_t*)(optionslist[i].target);
+		if (value < optionslist[i].min_or_bit) value = optionslist[i].min_or_bit;
+		if (value > optionslist[i].max) value = optionslist[i].max;
+		*(uint16_t*)(optionslist[i].target) = value;
 	}
 
 	const char *onoffexit = "ON  OFF EXIT";
@@ -408,10 +441,11 @@ void optionMenu(void) {
 				uint16_t color = GRAY;
 				bool is_enabled = 0;
 				if (optionslist[entry].type == OPT_BIT) {
-					uint8_t value = optionslist[entry].min_or_bit & *(optionslist[entry].target);
+					uint8_t value = optionslist[entry].min_or_bit & *(uint8_t*)(optionslist[entry].target);
 					if (value) color = GREEN;
 					else color = RED;
-				} else if (optionslist[entry].type == OPT_8BIT_VALUE) {
+				} else if (optionslist[entry].type == OPT_8BIT_VALUE ||
+				           optionslist[entry].type == OPT_16BIT_VALUE) {
 					color = GREEN;
 				}
 				if (opt == i) tft.setTextColor(WHITE);
@@ -422,12 +456,20 @@ void optionMenu(void) {
 				printed = 1 + strlen(optionslist[entry].title);
 			
 				if (optionslist[entry].type == OPT_8BIT_VALUE) {
-					uint8_t val = *(optionslist[entry].target);
+					uint8_t val = *(uint8_t*)(optionslist[entry].target);
 					tft.print(" ");
 					if (val < 100) tft.print(" ");
 					if (val < 10) tft.print(" ");
 					tft.print(val);
-					printed += 3;
+					printed += 4;
+				} else if (optionslist[entry].type == OPT_16BIT_VALUE) {
+					uint16_t val = *(uint16_t*)(optionslist[entry].target);
+					tft.print(" ");
+					if (val < 1000) tft.print(" ");
+					if (val < 100) tft.print(" ");
+					if (val < 10) tft.print(" ");
+					tft.print(val);
+					printed += 5;
 				}
 				for (uint8_t j = printed; j < chars_per_line; j++) tft.print(" ");
 				tft.println("");
@@ -436,7 +478,8 @@ void optionMenu(void) {
 			// Render operationstext
 			tft.setTextColor(WHITE, BLACK);
 			tft.setCursor(10, 112);
-			if (optionslist[opt + first_option].type == OPT_8BIT_VALUE) {
+			if (optionslist[opt + first_option].type == OPT_8BIT_VALUE ||
+			    optionslist[opt + first_option].type == OPT_16BIT_VALUE) {
 				tft.print(plusminusexit);
 			} else {
 				tft.print(onoffexit);
@@ -482,13 +525,20 @@ void optionMenu(void) {
 			enum optiontype type = optionslist[entry].type;
 			switch (type) {
 				case OPT_BIT:
-					*(optionslist[entry].target) |= optionslist[entry].min_or_bit;
+					*(uint8_t*)(optionslist[entry].target) |= optionslist[entry].min_or_bit;
 					break;
-				case OPT_8BIT_VALUE:
-					uint8_t value = *(optionslist[entry].target) + optionslist[entry].stepsize;
+				case OPT_8BIT_VALUE: {
+					uint8_t value = *(uint8_t*)(optionslist[entry].target) + optionslist[entry].stepsize;
 					if (value > optionslist[entry].max) value = optionslist[entry].max;
-					*(optionslist[entry].target) = value;
+					*(uint8_t*)(optionslist[entry].target) = value;
 					break;
+					}
+				case OPT_16BIT_VALUE: {
+					uint16_t value = *(uint16_t*)(optionslist[entry].target) + optionslist[entry].stepsize;
+					if (value > optionslist[entry].max) value = optionslist[entry].max;
+					*(uint16_t*)(optionslist[entry].target) = value;
+					break;
+				  }
 			}
 			redraw = true;
 		}
@@ -498,14 +548,22 @@ void optionMenu(void) {
 			enum optiontype type = optionslist[entry].type;
 			switch (type) {
 				case OPT_BIT:
-					*(optionslist[entry].target) &= ~(optionslist[entry].min_or_bit);
+					*(uint8_t*)(optionslist[entry].target) &= ~(optionslist[entry].min_or_bit);
 					break;
-				case OPT_8BIT_VALUE:
-					uint8_t value = *(optionslist[entry].target);
+				case OPT_8BIT_VALUE: {
+					uint8_t value = *(uint8_t*)(optionslist[entry].target);
 					if (value >= optionslist[entry].stepsize) value -= optionslist[entry].stepsize;
 					else value = 0;
 					if (value < optionslist[entry].min_or_bit) value = optionslist[entry].min_or_bit;
-					*(optionslist[entry].target) = value;
+					*(uint8_t*)(optionslist[entry].target) = value;
+					break; }
+				case OPT_16BIT_VALUE: {
+					uint16_t value = *(uint16_t*)(optionslist[entry].target);
+					if (value >= optionslist[entry].stepsize) value -= optionslist[entry].stepsize;
+					else value = 0;
+					if (value < optionslist[entry].min_or_bit) value = optionslist[entry].min_or_bit;
+					*(uint16_t*)(optionslist[entry].target) = value;
+					break; }
 			}
 			redraw = true;
 		}
@@ -515,6 +573,10 @@ void optionMenu(void) {
 
 	EEPROM.update(EEPROM_OPTIONS, (fahrenheit << 2) | (bootheat << 1) | autopower);
 	EEPROM.update(EEPROM_POWER, maxpower);
+	EEPROM.put(EEPROM_STBYTEMP, temp_standby);
+	EEPROM.put(EEPROM_STBYTIME, time_standby);
+	EEPROM.put(EEPROM_MINTEMP, temp_min);
+	EEPROM.put(EEPROM_MAXTEMP, temp_max);
 	updateRevision();
 	EEPROM.update(EEPROM_VERSION, EE_VERSION);
 	if (EEPROM.read(EEPROM_VERSION) < 30) {
@@ -698,8 +760,8 @@ void timer_sw_poll(void) {
 		cnt_but_press++;
 		if((cnt_but_press >= 100) || sw_changed) {
 			setStandby(false);
-			if(sw_up && set_t < TEMP_MAX) set_t++;
-			else if (sw_down && set_t > TEMP_MIN) set_t--;
+			if(sw_up && set_t < temp_max) set_t++;
+			else if (sw_down && set_t > temp_min) set_t--;
 			if(!sw_changed) cnt_but_press = 97;
 			updateEEPROM();
 		}
@@ -851,8 +913,8 @@ void display(void) {
 				printTemp(set_t);
 				tft.write(247);
 				tft.write(fahrenheit?'F':'C');
-				tft.fillTriangle(140, 50, 150, 50, 145, 38, (set_t < TEMP_MAX) ? WHITE : GRAY);
-				tft.fillTriangle(140, 77, 150, 77, 145, 90, (set_t > TEMP_MIN) ? WHITE : GRAY);
+				tft.fillTriangle(149, 50, 159, 50, 154, 38, (set_t < temp_max) ? WHITE : GRAY);
+				tft.fillTriangle(149, 77, 159, 77, 154, 90, (set_t > temp_min) ? WHITE : GRAY);
 			}
 		}
 		if (!off) {
@@ -860,9 +922,9 @@ void display(void) {
 			if (autopower) {
 				int16_t tout;
 				if (stby || stby_layoff) {
-					tout = min(max(0,(last_on_state + OFF_TIMEOUT - (millis())/1000)), OFF_TIMEOUT);
+					tout = min(max(0,(last_on_state + time_off - (millis())/1000)), time_off);
 				} else {
-					tout = min(max(0,(last_temperature_drop + STANDBY_TIMEOUT - (millis())/1000)), STANDBY_TIMEOUT);
+					tout = min(max(0,(last_temperature_drop + time_standby - (millis())/1000)), time_standby);
 				}
 				tft.setTextColor(stby?RED:YELLOW, BLACK);
 				tft.setTextSize(2);
@@ -1028,10 +1090,10 @@ void display(void) {
 				autopower_repeat_under = false; //over the max pwm for at least two times
 			}
 		}
-		if (!off && !stby && millis()/1000 > (last_temperature_drop + STANDBY_TIMEOUT)) {
+		if (!off && !stby && millis()/1000 > (last_temperature_drop + time_standby)) {
 			setStandby(true);
 		}
-		if (!off && (stby || stby_layoff) && millis()/1000 > (last_on_state + OFF_TIMEOUT)) {
+		if (!off && (stby || stby_layoff) && millis()/1000 > (last_on_state + time_off)) {
 			setOff(true);
 		}
 	}
@@ -1059,7 +1121,7 @@ void compute(void) {
 		}
 	} else {
 		if (stby_layoff || stby) {
-			target_t = TEMP_STBY;
+			target_t = temp_standby;
 		} else {
 			target_t = set_t;
 		}
@@ -1219,7 +1281,7 @@ void loop(void) {
 				if (Serial.available() >= 3) {
 					t = serialReadTemp();
 					//Serial.println(t);
-					if (t <= TEMP_MAX && t >= TEMP_MIN) {
+					if (t <= temp_max && t >= temp_min) {
 						set_t = t;
 						updateEEPROM();
 					}
@@ -1231,7 +1293,7 @@ void loop(void) {
 					uint8_t slot = Serial.read()-'1';
 					if (slot < 3) {
 						t = serialReadTemp();
-						if (t <= TEMP_MAX && t >= TEMP_MIN) {
+						if (t <= temp_max && t >= temp_min) {
 							stored[slot] = t;
 							updateEEPROM();
 						}

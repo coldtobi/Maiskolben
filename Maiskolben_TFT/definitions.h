@@ -8,9 +8,9 @@
  * TIPS ARE SPECIFIED FOR 450 DEGREE MAX
  * If read 1023 on Analog in, the tip is turned off automatically
  */
-#define TEMP_MAX    450
-#define TEMP_MIN    200
-#define TEMP_STBY   150
+#define _TEMP_MAX    450
+#define _TEMP_MIN    200
+#define _TEMP_STBY   150
 #define TEMP_COLD   (adc_offset + 15)
 
 #define PMAX (40) // max watts to pump into the tip. (note: Weller specifies the tips as 40W; the big RT-11 has 55W)
@@ -18,8 +18,8 @@
 #define SHUTOFF_ACTIVE
 #define BOOTHEAT_ACTIVE
 
-#define STANDBY_TIMEOUT 240 // seconds without any significant temperature drop, if exceeded it will standby
-#define OFF_TIMEOUT     900 // seconds in standby before turning off
+#define _STANDBY_TIMEOUT 240 // seconds without any significant temperature drop, if exceeded it will standby
+#define _OFF_TIMEOUT     900 // seconds in standby before turning off
 
 #define TEMP_RISE             30 //threshold temperature, that must be exceeded delta in given time: (from cold to ~70°C)
 #define TEMP_UNDER_THRESHOLD  80 // x (TIME_COMPUTE_IN_MS + DELAY_BEFORE_MEASURE)
@@ -94,11 +94,11 @@
 #define EEPROM_ADCOFF   (EEPROM_ADCTTG + sizeof(float))
 
 // EEPROM Version 32
-#define EEPROM_POWER    20
-#define EEPROM_STBYTEMP 21
-#define EEPROM_STBYTIME 23
-#define EEPROM_MINTEMP  25
-#define EEPROM_MAXTEMP  27
+#define EEPROM_POWER    22
+#define EEPROM_STBYTEMP 23
+#define EEPROM_STBYTIME 25
+#define EEPROM_MINTEMP  27
+#define EEPROM_MAXTEMP  29
 
 
 #define EEPROM_INSTALL  42
