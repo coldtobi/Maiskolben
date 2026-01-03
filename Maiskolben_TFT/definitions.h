@@ -78,11 +78,11 @@
 #define EEPROM_ADCOFF   (EEPROM_ADCTTG + sizeof(float))
 
 // EEPROM Version 32
-#define EEPROM_POWER    20
-#define EEPROM_STBYTEMP 21
-#define EEPROM_STBYTIME 23
-#define EEPROM_MINTEMP  25
-#define EEPROM_MAXTEMP  27
+#define EEPROM_POWER    22
+#define EEPROM_STBYTEMP 23
+#define EEPROM_STBYTIME 25
+#define EEPROM_MINTEMP  27
+#define EEPROM_MAXTEMP  29
 
 
 #define EEPROM_INSTALL  42
