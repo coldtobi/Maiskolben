@@ -865,8 +865,12 @@ void display(void) {
 	if (error != NO_ERROR) {
 		if (error != error_old || force_redraw) {
 			error_old = error;
+			tft.setTextColor(YELLOW, BLACK);
+			tft.setCursor(36,26);
+			tft.setTextSize(3);
+			tft.print(F(" ERROR"));
+
 			tft.setTextSize(1);
-			tft.setTextColor(RED, BLACK);
 			tft.setCursor(0,96);
 			switch (error) {
 				case EXCESSIVE_FALL:
@@ -892,11 +896,6 @@ void display(void) {
 			tft.setTextColor(YELLOW, BLACK);
 			tft.setCursor(10,112);
 			tft.print(F("         OK "));
-			
-			tft.setTextColor(RED, BLACK);
-			tft.setCursor(36,26);
-			tft.setTextSize(3);
-			tft.print(F(" ERR  "));
 		}
 	} else {
 		if (error != error_old || force_redraw) {
