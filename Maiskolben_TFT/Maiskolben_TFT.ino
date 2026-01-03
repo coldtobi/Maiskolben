@@ -1087,7 +1087,9 @@ void display(void) {
 #ifdef SHUTOFF_ACTIVE
 	if (autopower) {
 		if (!stby_layoff) {
-			if (pwm > max(20, (cur_t-150)/50*round(25-min(15,v)))+5) {
+			uint8_t power = calculate_power();
+			uint8_t estimated_standbypower = (cur_t/50) + 2;
+			if (power > estimated_standbypower) {
 			//if (target_t-cur_t > 0.715*exp(0.0077*target_t)) {
 			//if (cur_t / (double)target_t < STANDBY_TEMPERATURE_DROP) {
 				if (autopower_repeat_under || stby) {
