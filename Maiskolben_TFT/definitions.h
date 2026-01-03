@@ -1,4 +1,4 @@
-#define VERSION			"3.1"
+#define VERSION			"3.2-coldtobi"
 #define EE_VERSION      32
 #define EEPROM_CHECK	42
 

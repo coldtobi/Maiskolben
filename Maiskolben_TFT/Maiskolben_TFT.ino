@@ -284,11 +284,11 @@ void setup(void) {
 		tft.setTextColor(YELLOW);
 		tft.setTextSize(2);
 		tft.print("Maiskolben");
-		tft.setCursor(50,110);
+		tft.setCursor(30,110);
 		tft.setTextSize(1);
 		tft.print("Version ");
 		tft.print(VERSION);
-		tft.setCursor(46,120);
+		tft.setCursor(30,120);
 		tft.print("HW Revision ");
 		tft.print(revision);
 
