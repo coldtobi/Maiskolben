@@ -111,6 +111,10 @@ void sanitize_value() {
 	}
 }
 
+uint8_t calculate_power() {
+		return v*v/4.8*pwm/255;
+}
+
 void setup(void) {
 	digitalWrite(HEATER_PWM, LOW);
 	pinMode(HEATER_PWM, OUTPUT);
@@ -986,7 +990,7 @@ void display(void) {
 		tft.setTextColor(YELLOW, BLACK);
 		tft.setCursor(122,5);
 		tft.setTextSize(2);
-		int power =v*v/4.8*pwm/255;
+		uint8_t power = calculate_power();
 		if (power < 10) tft.write(' ');
 		tft.print(power);
 		tft.write('W');
