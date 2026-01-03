@@ -1211,6 +1211,11 @@ void compute(void) {
 
 	heaterPID.Compute();
 
+  // anti-wind-up of the I-parameter
+	// this "pauses" the integral part until we are actually within control limits.
+	if ( pid_val < 1.0 ) heaterPID.SetTunings(kp, ki, kd);
+	else heaterPID.SetTunings(kp, 0.0, kd);
+
 	// Power limitation.
 	// Tips are rated for 40W, do not exceed that.
 	// note t-hat we have inherently only 50% PWM, as we have it on 10ms and then wait with pwm off for another 10ms.
